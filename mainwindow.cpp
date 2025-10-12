@@ -17,6 +17,9 @@
 #include <QSpinBox>
 #include <QComboBox>
 #include <QFormLayout>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QDir>
 #include <windows.h>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -61,6 +64,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 刷新隐藏窗口列表
     refreshHiddenWindowsList();
+
+    // 加载设置
+    loadSettings();
 }
 
 MainWindow::~MainWindow()
@@ -145,12 +151,12 @@ void MainWindow::setupUI()
     QGroupBox* refreshGroup = new QGroupBox(trc("MainWindow", "Auto Refresh Settings"));
     QFormLayout* refreshLayout = new QFormLayout(refreshGroup);
 
-    QSpinBox* refreshIntervalSpin = new QSpinBox();
+    refreshIntervalSpin = new QSpinBox();
     refreshIntervalSpin->setRange(1, 60);
     refreshIntervalSpin->setValue(1);
     refreshIntervalSpin->setSuffix(trc("MainWindow", "seconds"));
 
-    QCheckBox* autoRefreshCheck = new QCheckBox(trc("MainWindow", "Enable auto refresh"));
+    autoRefreshCheck = new QCheckBox(trc("MainWindow", "Enable auto refresh"));
     autoRefreshCheck->setChecked(true);
 
     refreshLayout->addRow(autoRefreshCheck);
@@ -325,12 +331,21 @@ void MainWindow::restoreAllWindows()
 
 void MainWindow::updateSettings()
 {
-    bool hotkeyEnabled = enableHotkeyCheck->isChecked();
-    int maxWindows = maxWindowsSpin->value();
-    QString language = languageCombo->currentData().toString();
+    saveSettings();
 
-    // 保存设置到配置文件
-    // 这里可以实现设置保存逻辑
+    // 应用刷新设置
+    if (autoRefreshCheck->isChecked()) {
+        refreshTimer->start(refreshIntervalSpin->value() * 1000);
+    }
+    else {
+        refreshTimer->stop();
+    }
+    // 应用设置（这里可以添加实时生效的逻辑）
+    bool hotkeyEnabled = enableHotkeyCheck->isChecked();
+    // TODO: 实际启用/禁用热键
+
+    QString language = languageCombo->currentData().toString();
+    // TODO: 重新加载语言文件
 
     QMessageBox::information(this, trc("MainWindow", "Success"),
         trc("MainWindow", "Settings saved successfully!"));
@@ -447,4 +462,72 @@ void MainWindow::createTrayIcon()
     trayIcon->setToolTip(trc("MainWindow", "Window Tray Manager - Right click for menu"));
     connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayActivated);
     trayIcon->show();
+}
+
+QString MainWindow::getConfigPath() const
+{
+    // 使用程序目录下的 config.ini
+    return QCoreApplication::applicationDirPath() + "/config.ini";
+}
+
+void MainWindow::loadSettings()
+{
+    QSettings settings(getConfigPath(), QSettings::IniFormat);
+
+    // 热键设置
+    bool hotkeyEnabled = settings.value("hotkey/enabled", true).toBool();
+    enableHotkeyCheck->setChecked(hotkeyEnabled);
+
+    // 窗口设置
+    int maxWindows = settings.value("window/max_hidden", 50).toInt();
+    maxWindowsSpin->setValue(maxWindows);
+
+    // 常规设置
+    bool startWithSystem = settings.value("general/start_with_system", false).toBool();
+    startWithSystemCheck->setChecked(startWithSystem);
+
+    QString language = settings.value("general/language", "zh").toString();
+    int index = languageCombo->findData(language);
+    if (index >= 0) {
+        languageCombo->setCurrentIndex(index);
+    }
+
+    // 刷新设置
+    bool autoRefresh = settings.value("refresh/auto_refresh", true).toBool();
+    autoRefreshCheck->setChecked(autoRefresh);
+    int refreshInterval = settings.value("refresh/interval", 1).toInt();
+    refreshIntervalSpin->setValue(refreshInterval);
+
+    // 应用刷新设置到定时器
+    if (autoRefresh) {
+        refreshTimer->start(refreshInterval * 1000);
+    }
+    else {
+        refreshTimer->stop();
+    }
+
+    qDebug() << "Settings loaded from:" << getConfigPath();
+}
+
+void MainWindow::saveSettings()
+{
+    QSettings settings(getConfigPath(), QSettings::IniFormat);
+
+    // 热键设置
+    settings.setValue("hotkey/enabled", enableHotkeyCheck->isChecked());
+
+    // 窗口设置
+    settings.setValue("window/max_hidden", maxWindowsSpin->value());
+
+    // 常规设置
+    settings.setValue("general/start_with_system", startWithSystemCheck->isChecked());
+    settings.setValue("general/language", languageCombo->currentData().toString());
+
+    // 刷新设置
+    settings.setValue("refresh/auto_refresh", autoRefreshCheck->isChecked());
+    settings.setValue("refresh/interval", refreshIntervalSpin->value());
+
+    settings.sync(); // 立即写入磁盘
+
+    qDebug() << "Settings saved to:" << getConfigPath();
 }

@@ -33,8 +33,6 @@ private slots:
     void showWindow();
     void closeApp();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
-
-    // 新增功能槽函数
     void refreshHiddenWindowsList();
     void restoreSelectedWindow();
     void restoreAllWindows();
@@ -48,6 +46,11 @@ private:
     void createTrayIcon();
     void setupUI();
     void setupConnections();
+    void loadSettings();
+    void saveSettings();
+
+	// 配置文件路径
+    QString getConfigPath() const;
 
     // UI 组件
     QTabWidget* tabWidget;
@@ -78,4 +81,7 @@ private:
 
 	// 定时刷新计时器
     QTimer* refreshTimer;
+
+    QCheckBox* autoRefreshCheck;
+    QSpinBox* refreshIntervalSpin;
 };
