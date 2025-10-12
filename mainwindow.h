@@ -38,6 +38,8 @@ private slots:
     void restoreAllWindows();
     void updateSettings();
     void showAbout();
+    void refreshAllWindowsList();
+    void hideSelectedToTray();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -48,6 +50,7 @@ private:
     void setupConnections();
     void loadSettings();
     void saveSettings();
+    QList<QPair<HWND, QString>> getAllVisibleWindows() const;
 
 	// 配置文件路径
     QString getConfigPath() const;
@@ -84,4 +87,10 @@ private:
 
     QCheckBox* autoRefreshCheck;
     QSpinBox* refreshIntervalSpin;
+
+    // 任务管理器控件
+    QListWidget* allWindowsList;
+    QPushButton* hideSelectedButton;
+    QPushButton* refreshAllButton;
+    QLabel* allWindowsStatusLabel;
 };

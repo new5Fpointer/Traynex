@@ -62,7 +62,7 @@ MainWindow::MainWindow(QWidget* parent)
     // 初始隐藏主窗口
     hide();
 
-    // 刷新隐藏窗口列表
+    refreshAllWindowsList();
     refreshHiddenWindowsList();
 
     // 加载设置
@@ -86,47 +86,68 @@ void MainWindow::setupUI()
     QVBoxLayout* mainLayout = new QVBoxLayout(mainTab);
 
     // 标题
-    QLabel* titleLabel = new QLabel(trc("MainWindow", "Hidden Windows Manager"));
+    QLabel* titleLabel = new QLabel(trc("MainWindow", "Window Process Manager"));
     titleLabel->setStyleSheet("font-size: 16px; font-weight: bold; margin: 10px;");
 
-    // 隐藏窗口列表
-    QGroupBox* listGroup = new QGroupBox(trc("MainWindow", "Currently Hidden Windows"));
-    QVBoxLayout* listLayout = new QVBoxLayout(listGroup);
+    // 所有窗口列表组
+    QGroupBox* allWindowsGroup = new QGroupBox(trc("MainWindow", "All Visible Windows"));
+    QVBoxLayout* allWindowsLayout = new QVBoxLayout(allWindowsGroup);
+
+    allWindowsList = new QListWidget();
+    allWindowsList->setSelectionMode(QListWidget::SingleSelection);
+    allWindowsLayout->addWidget(allWindowsList);
+
+    // 所有窗口操作按钮
+    QHBoxLayout* allWindowsButtonLayout = new QHBoxLayout();
+    refreshAllButton = new QPushButton(trc("MainWindow", "Refresh All"));
+    hideSelectedButton = new QPushButton(trc("MainWindow", "Hide Selected to Tray"));
+
+    allWindowsButtonLayout->addWidget(refreshAllButton);
+    allWindowsButtonLayout->addWidget(hideSelectedButton);
+    allWindowsLayout->addLayout(allWindowsButtonLayout);
+
+    // 所有窗口状态标签
+    allWindowsStatusLabel = new QLabel(trc("MainWindow", "No windows found"));
+    allWindowsStatusLabel->setStyleSheet("color: gray; font-style: italic;");
+    allWindowsLayout->addWidget(allWindowsStatusLabel);
+
+    // 隐藏窗口列表组（保留但可以缩小）
+    QGroupBox* hiddenWindowsGroup = new QGroupBox(trc("MainWindow", "Hidden Windows (In Tray)"));
+    QVBoxLayout* hiddenLayout = new QVBoxLayout(hiddenWindowsGroup);
 
     hiddenWindowsList = new QListWidget();
     hiddenWindowsList->setSelectionMode(QListWidget::SingleSelection);
-    listLayout->addWidget(hiddenWindowsList);
+    hiddenLayout->addWidget(hiddenWindowsList);
 
-    // 按钮区域
-    QHBoxLayout* buttonLayout = new QHBoxLayout();
-    refreshButton = new QPushButton(trc("MainWindow", "Refresh List"));
+    QHBoxLayout* hiddenButtonLayout = new QHBoxLayout();
+    refreshButton = new QPushButton(trc("MainWindow", "Refresh Hidden"));
     restoreSelectedButton = new QPushButton(trc("MainWindow", "Restore Selected"));
     restoreAllButton = new QPushButton(trc("MainWindow", "Restore All"));
 
-    buttonLayout->addWidget(refreshButton);
-    buttonLayout->addWidget(restoreSelectedButton);
-    buttonLayout->addWidget(restoreAllButton);
-    listLayout->addLayout(buttonLayout);
+    hiddenButtonLayout->addWidget(refreshButton);
+    hiddenButtonLayout->addWidget(restoreSelectedButton);
+    hiddenButtonLayout->addWidget(restoreAllButton);
+    hiddenLayout->addLayout(hiddenButtonLayout);
 
-    // 状态标签
     statusLabel = new QLabel(trc("MainWindow", "No windows are currently hidden"));
     statusLabel->setStyleSheet("color: gray; font-style: italic;");
-    listLayout->addWidget(statusLabel);
+    hiddenLayout->addWidget(statusLabel);
 
-    // 快速操作区域
+    // 快速操作区域（保留）
     QGroupBox* quickActionsGroup = new QGroupBox(trc("MainWindow", "Quick Actions"));
     QVBoxLayout* quickLayout = new QVBoxLayout(quickActionsGroup);
 
-    QPushButton* minimizeCurrentBtn = new QPushButton(trc("MainWindow", "Minimize Current Active Window"));
+    QPushButton* minimizeCurrentBtn = new QPushButton(trc("MainWindow", "Minimize Current Active Window to Tray"));
     QLabel* hotkeyLabel = new QLabel(trc("MainWindow", "Hotkey: Win + Shift + Z"));
     hotkeyLabel->setStyleSheet("color: blue;");
 
     quickLayout->addWidget(minimizeCurrentBtn);
     quickLayout->addWidget(hotkeyLabel);
 
-    // 组装主页面
+    // 组装主页面 - 改为上下布局
     mainLayout->addWidget(titleLabel);
-    mainLayout->addWidget(listGroup);
+    mainLayout->addWidget(allWindowsGroup, 2);  // 更大的权重
+    mainLayout->addWidget(hiddenWindowsGroup, 1); // 较小的权重
     mainLayout->addWidget(quickActionsGroup);
     mainLayout->addStretch();
 
@@ -252,6 +273,9 @@ void MainWindow::setupConnections()
     connect(restoreAllButton, &QPushButton::clicked, this, &MainWindow::restoreAllWindows);
     connect(saveSettingsButton, &QPushButton::clicked, this, &MainWindow::updateSettings);
     connect(hiddenWindowsList, &QListWidget::itemDoubleClicked, this, &MainWindow::restoreSelectedWindow);
+    connect(refreshAllButton, &QPushButton::clicked, this, &MainWindow::refreshAllWindowsList);
+    connect(hideSelectedButton, &QPushButton::clicked, this, &MainWindow::hideSelectedToTray);
+    connect(allWindowsList, &QListWidget::itemDoubleClicked, this, &MainWindow::hideSelectedToTray);
 }
 
 void MainWindow::refreshHiddenWindowsList()
@@ -388,7 +412,8 @@ void MainWindow::showWindow()
     show();
     raise();
     activateWindow();
-    refreshHiddenWindowsList(); // 显示时刷新列表
+    refreshAllWindowsList();
+    refreshHiddenWindowsList();
 
     // 确保定时器运行
     if (refreshTimer && !refreshTimer->isActive()) {
@@ -530,4 +555,103 @@ void MainWindow::saveSettings()
     settings.sync(); // 立即写入磁盘
 
     qDebug() << "Settings saved to:" << getConfigPath();
+}
+
+void MainWindow::refreshAllWindowsList()
+{
+    allWindowsList->clear();
+
+    auto visibleWindows = getAllVisibleWindows();
+
+    for (const auto& window : visibleWindows) {
+        HWND hwnd = window.first;
+        QString title = window.second;
+
+        // 检查窗口是否已经被隐藏
+        bool isHidden = false;
+        auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+        for (const auto& hiddenWindow : hiddenWindows) {
+            if (hiddenWindow.first == hwnd) {
+                isHidden = true;
+                break;
+            }
+        }
+
+        // 创建列表项
+        QString itemText = title;
+        if (isHidden) {
+            itemText += " [Hidden in Tray]";
+        }
+
+        QListWidgetItem* item = new QListWidgetItem(itemText);
+        item->setData(Qt::UserRole, reinterpret_cast<qulonglong>(hwnd));
+
+        if (isHidden) {
+            item->setForeground(Qt::gray);
+            item->setToolTip(trc("MainWindow", "This window is currently hidden in tray"));
+        }
+
+        allWindowsList->addItem(item);
+    }
+
+    // 更新状态标签
+    int windowCount = allWindowsList->count();
+    if (windowCount > 0) {
+        allWindowsStatusLabel->setText(trc("MainWindow", "Found %1 windows").arg(windowCount));
+        allWindowsStatusLabel->setStyleSheet("color: green;");
+    }
+    else {
+        allWindowsStatusLabel->setText(trc("MainWindow", "No windows found"));
+        allWindowsStatusLabel->setStyleSheet("color: gray; font-style: italic;");
+    }
+}
+
+void MainWindow::hideSelectedToTray()
+{
+    QListWidgetItem* item = allWindowsList->currentItem();
+    if (!item) {
+        QMessageBox::information(this, trc("MainWindow", "Information"),
+            trc("MainWindow", "Please select a window to hide"));
+        return;
+    }
+
+    HWND hwnd = reinterpret_cast<HWND>(item->data(Qt::UserRole).toULongLong());
+
+    if (WindowsTrayManager::instance().minimizeWindowToTray(hwnd)) {
+        // 成功隐藏，刷新两个列表
+        refreshAllWindowsList();
+        refreshHiddenWindowsList();
+
+        QMessageBox::information(this, trc("MainWindow", "Success"),
+            trc("MainWindow", "Window hidden to tray successfully"));
+    }
+    else {
+        QMessageBox::warning(this, trc("MainWindow", "Error"),
+            trc("MainWindow", "Failed to hide window to tray"));
+    }
+}
+
+QList<QPair<HWND, QString>> MainWindow::getAllVisibleWindows() const
+{
+    QList<QPair<HWND, QString>> windows;
+
+    // 使用 EnumWindows 枚举所有顶层窗口
+    EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        auto windowsList = reinterpret_cast<QList<QPair<HWND, QString>>*>(lParam);
+
+        // 检查窗口是否可见
+        if (IsWindowVisible(hwnd)) {
+            wchar_t title[256];
+            if (GetWindowText(hwnd, title, 256) > 0) {
+                QString windowTitle = QString::fromWCharArray(title);
+                // 过滤掉空标题和系统窗口
+                if (!windowTitle.isEmpty() && windowTitle != "Program Manager") {
+                    windowsList->append(qMakePair(hwnd, windowTitle));
+                }
+            }
+        }
+        return TRUE;
+        }, reinterpret_cast<LPARAM>(&windows));
+
+    return windows;
 }
