@@ -14,6 +14,7 @@ public:
     bool minimizeWindowToTray(HWND hwnd);
     void restoreAllWindows();
     bool isInitialized() const { return m_initialized; }
+    bool restoreWindow(HWND hwnd);
 
     // 获取隐藏窗口信息
     std::vector<std::pair<HWND, std::wstring>> getHiddenWindows() const;

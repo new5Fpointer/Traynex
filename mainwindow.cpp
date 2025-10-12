@@ -256,6 +256,9 @@ void MainWindow::refreshHiddenWindowsList()
     auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
 
     for (const auto& window : hiddenWindows) {
+        if (!window.first || !IsWindow(window.first)) {
+            continue; // 跳过无效窗口
+        }
         // 将宽字符串转换为 QString
         QString title = QString::fromWCharArray(window.second.c_str());
         if (title.isEmpty() || title == "Unknown Window") {
@@ -280,6 +283,7 @@ void MainWindow::refreshHiddenWindowsList()
     }
 }
 
+
 void MainWindow::restoreSelectedWindow()
 {
     QListWidgetItem* item = hiddenWindowsList->currentItem();
@@ -289,14 +293,28 @@ void MainWindow::restoreSelectedWindow()
         return;
     }
 
-    // 这里需要实现恢复选定窗口的功能
-    QString windowName = item->text();
-    QMessageBox::information(this, trc("MainWindow", "Restore"),
-        trc("MainWindow", "Would restore: %1").arg(windowName));
+    // 获取窗口句柄
+    HWND hwnd = reinterpret_cast<HWND>(item->data(Qt::UserRole).toULongLong());
 
-    // 从列表中移除
-    delete item;
-    refreshHiddenWindowsList();
+    if (!hwnd || !IsWindow(hwnd)) {
+        QMessageBox::warning(this, trc("MainWindow", "Warning"),
+            trc("MainWindow", "The selected window is no longer available"));
+        // 从列表中移除无效项
+        delete item;
+        refreshHiddenWindowsList();
+        return;
+    }
+
+    // 调用 WindowsTrayManager 恢复单个窗口
+    if (WindowsTrayManager::instance().restoreWindow(hwnd)) {
+        // 成功恢复，从列表中移除
+        delete item;
+        refreshHiddenWindowsList();
+    }
+    else {
+        QMessageBox::warning(this, trc("MainWindow", "Error"),
+            trc("MainWindow", "Failed to restore the window"));
+    }
 }
 
 void MainWindow::restoreAllWindows()

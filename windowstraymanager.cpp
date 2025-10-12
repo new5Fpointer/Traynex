@@ -339,9 +339,17 @@ LRESULT CALLBACK WindowsTrayManager::windowProc(HWND hwnd, UINT uMsg, WPARAM wPa
         }
         break;
 
-    case WM_TRAYICON:
+    case WM_TRAYICON:// 托盘图标双击恢复功能
         if (lParam == WM_LBUTTONDBLCLK) {
             manager->showWindowFromTray(static_cast<UINT>(wParam));
+        }
+        else if (lParam == WM_RBUTTONUP) {
+            // 显示上下文菜单
+            POINT pt;
+            GetCursorPos(&pt);
+            SetForegroundWindow(hwnd); // 确保菜单能正确消失
+            TrackPopupMenu(manager->m_trayMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
+            PostMessage(hwnd, WM_NULL, 0, 0);
         }
         break;
 
@@ -365,4 +373,36 @@ LRESULT CALLBACK WindowsTrayManager::windowProc(HWND hwnd, UINT uMsg, WPARAM wPa
     }
 
     return 0;
+}
+
+bool WindowsTrayManager::restoreWindow(HWND hwnd)
+{
+    if (!hwnd || !IsWindow(hwnd)) {
+        return false;
+    }
+
+    // 查找对应的托盘图标
+    auto it = std::find_if(m_hiddenWindows.begin(), m_hiddenWindows.end(),
+        [hwnd](const HiddenWindow& hiddenWindow) {
+            return hiddenWindow.hwnd == hwnd;
+        });
+
+    if (it == m_hiddenWindows.end()) {
+        return false;
+    }
+
+    // 恢复窗口显示
+    ShowWindow(hwnd, SW_SHOW);
+    SetForegroundWindow(hwnd);
+
+    // 移除托盘图标
+    Shell_NotifyIcon(NIM_DELETE, &it->iconData);
+
+    // 从列表中移除
+    m_hiddenWindows.erase(it);
+
+    // 更新保存文件
+    saveHiddenWindows();
+
+    return true;
 }
