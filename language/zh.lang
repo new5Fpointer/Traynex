@@ -1,0 +1,13 @@
+[MainWindow]
+My Application=我的应用程序
+Open Main Window=打开主界面
+Exit=退出
+My Application - Right click for menu=我的应用程序 - 右键查看菜单
+Restore All Windows=恢复所有窗口
+%1 windows are currently hidden=当前有 %1 个窗口被隐藏
+No windows are currently hidden=当前没有隐藏的窗口
+Unknown Window=未知窗口
+Auto Refresh Settings=自动刷新设置
+Enable auto refresh=启用自动刷新
+Refresh interval:=刷新间隔：
+ seconds= 秒
