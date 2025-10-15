@@ -38,8 +38,11 @@ private slots:
     void restoreAllWindows();
     void updateSettings();
     void showAbout();
-    void refreshAllWindowsList();
+    void refreshAllLists();
     void hideSelectedToTray();
+    void onTableContextMenu(const QPoint& pos);
+    void bringToFront();
+    void endTask();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -50,20 +53,38 @@ private:
     void setupConnections();
     void loadSettings();
     void saveSettings();
-    QList<QPair<HWND, QString>> getAllVisibleWindows() const;
 
-	// 配置文件路径
+    void refreshWindowsTable();
+    void createContextMenu();
+
+    struct WindowInfo {
+        QString title;
+        QString processName;
+        HWND hwnd;
+        bool isHidden;
+        bool isVisible;
+    };
+    QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
+
+    // 配置文件路径
     QString getConfigPath() const;
+    HWND getSelectedWindow() const;
 
     // UI 组件
     QTabWidget* tabWidget;
 
-    // 主页面组件
-    QListWidget* hiddenWindowsList;
-    QPushButton* refreshButton;
-    QPushButton* restoreSelectedButton;
-    QPushButton* restoreAllButton;
+    // 主页面组件 - 任务管理器风格
+    QTableWidget* windowsTable;
+    QPushButton* refreshBtn;
+    QPushButton* hideCurrentBtn;
     QLabel* statusLabel;
+
+    // 右键菜单
+    QMenu* contextMenu;
+    QAction* hideToTrayAction;
+    QAction* restoreAction;
+    QAction* bringToFrontAction;
+    QAction* endTaskAction;
 
     // 设置页面组件
     QCheckBox* startWithSystemCheck;
@@ -82,15 +103,9 @@ private:
     QAction* restoreAllAction;
     QAction* quitAction;
 
-	// 定时刷新计时器
+    // 定时刷新计时器
     QTimer* refreshTimer;
 
     QCheckBox* autoRefreshCheck;
     QSpinBox* refreshIntervalSpin;
-
-    // 任务管理器控件
-    QListWidget* allWindowsList;
-    QPushButton* hideSelectedButton;
-    QPushButton* refreshAllButton;
-    QLabel* allWindowsStatusLabel;
 };

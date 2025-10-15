@@ -4,6 +4,7 @@
 #include <fstream>
 #include <algorithm>
 #include <vector>
+#include <psapi.h>
 
 // 静态成员初始化
 WindowsTrayManager* WindowsTrayManager::s_instance = nullptr;
