@@ -25,7 +25,7 @@ set(PROJECT_SOURCES
     windowstraymanager.cpp
 )
 
-set(WIN32_LIBS shell32 user32)
+set(WIN32_LIBS shell32 user32 psapi)
 
 qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 
@@ -39,5 +39,6 @@ target_link_libraries(${PROJECT_NAME}
         Qt::Core
         Qt::Gui
         Qt::Widgets
+        ${WIN32_LIBS}
 )
 
