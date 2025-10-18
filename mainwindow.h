@@ -65,6 +65,7 @@ private:
         bool isVisible;
     };
     QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
+    QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
 
     // 配置文件路径
     QString getConfigPath() const;

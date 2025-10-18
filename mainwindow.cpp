@@ -565,31 +565,94 @@ void MainWindow::createContextMenu()
 
 void MainWindow::onTableContextMenu(const QPoint& pos)
 {
-    QTableWidgetItem* item = windowsTable->itemAt(pos);
-    if (!item) return;
+    // 临时停止自动刷新
+    if (refreshTimer && refreshTimer->isActive()) {
+        refreshTimer->stop();
+    }
 
-    int row = windowsTable->currentRow();
-    HWND hwnd = reinterpret_cast<HWND>(windowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
+    // 获取点击位置对应的行
+    int row = windowsTable->rowAt(pos.y());
+    if (row < 0 || row >= windowsTable->rowCount()) {
+        // 恢复计时器
+        if (refreshTimer && autoRefreshCheck->isChecked()) {
+            refreshTimer->start(refreshIntervalSpin->value());
+        }
+        return;
+    }
+
+    // 确保选中这一行
+    windowsTable->setCurrentCell(row, 0);
+
+    // 获取 HWND 数据
+    QTableWidgetItem* hwndItem = windowsTable->item(row, 0);
+    if (!hwndItem) {
+        // 恢复计时器
+        if (refreshTimer && autoRefreshCheck->isChecked()) {
+            refreshTimer->start(refreshIntervalSpin->value());
+        }
+        return;
+    }
+
+    HWND hwnd = reinterpret_cast<HWND>(hwndItem->data(Qt::UserRole).toULongLong());
+    if (!hwnd || !IsWindow(hwnd)) {
+        // 恢复计时器
+        if (refreshTimer && autoRefreshCheck->isChecked()) {
+            refreshTimer->start(refreshIntervalSpin->value());
+        }
+        return;
+    }
 
     // 根据窗口状态更新菜单项
-    bool isHidden = windowsTable->item(row, 2)->text() == trc("MainWindow", "Hidden");
+    QTableWidgetItem* statusItem = windowsTable->item(row, 2);
+    bool isHidden = statusItem && statusItem->text() == trc("MainWindow", "Hidden");
 
     hideToTrayAction->setEnabled(!isHidden);
     restoreAction->setEnabled(isHidden);
     bringToFrontAction->setEnabled(true);
     endTaskAction->setEnabled(true);
 
+    // 显示菜单
     contextMenu->exec(windowsTable->viewport()->mapToGlobal(pos));
-}
 
+    // 恢复自动刷新
+    if (refreshTimer && autoRefreshCheck->isChecked()) {
+        refreshTimer->start(refreshIntervalSpin->value());
+    }
+}
 void MainWindow::refreshWindowsTable()
 {
-    windowsTable->setSortingEnabled(false); // 刷新时暂停排序
+    auto currentWindowsInfo = getAllWindowsInfo();
+
+    // 检查窗口列表是否发生变化
+    bool needsRefresh = false;
+
+    if (currentWindowsInfo.size() != m_lastWindowsInfo.size()) {
+        needsRefresh = true;
+    }
+    else {
+        // 检查窗口状态是否有变化
+        for (int i = 0; i < currentWindowsInfo.size(); ++i) {
+            if (currentWindowsInfo[i].first != m_lastWindowsInfo[i].first ||
+                currentWindowsInfo[i].second.isHidden != m_lastWindowsInfo[i].second.isHidden ||
+                currentWindowsInfo[i].second.title != m_lastWindowsInfo[i].second.title ||
+                currentWindowsInfo[i].second.processName != m_lastWindowsInfo[i].second.processName) {
+                needsRefresh = true;
+                break;
+            }
+        }
+    }
+
+    if (!needsRefresh) {
+        return; // 没有变化，不刷新
+    }
+
+    // 保存当前选中的窗口句柄
+    HWND previouslySelectedHwnd = getSelectedWindow();
+
+    windowsTable->setSortingEnabled(false);
     windowsTable->setRowCount(0);
 
-    auto windowsInfo = getAllWindowsInfo();
-
-    for (const auto& window : windowsInfo) {
+    for (const auto& window : currentWindowsInfo) {
         int row = windowsTable->rowCount();
         windowsTable->insertRow(row);
 
@@ -631,12 +694,22 @@ void MainWindow::refreshWindowsTable()
         // 隐藏窗口显示为灰色
         if (window.second.isHidden) {
             for (int col = 0; col < 4; ++col) {
-                windowsTable->item(row, col)->setForeground(Qt::gray);
+                if (auto item = windowsTable->item(row, col)) {
+                    item->setForeground(Qt::gray);
+                }
             }
+        }
+
+        // 恢复选中状态
+        if (window.second.hwnd == previouslySelectedHwnd) {
+            windowsTable->setCurrentCell(row, 0);
         }
     }
 
     windowsTable->setSortingEnabled(true);
+
+    // 保存当前窗口信息用于下次比较
+    m_lastWindowsInfo = currentWindowsInfo;
 }
 
 QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
