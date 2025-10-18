@@ -87,17 +87,7 @@ void MainWindow::setupUI()
 
     // 标题和工具栏
     QHBoxLayout* headerLayout = new QHBoxLayout();
-
-    QLabel* titleLabel = new QLabel(trc("MainWindow", "Window Task Manager"));
-    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold;");
-
-    refreshBtn = new QPushButton(trc("MainWindow", "Refresh"));
-    hideCurrentBtn = new QPushButton(trc("MainWindow", "Hide Current"));
-
-    headerLayout->addWidget(titleLabel);
     headerLayout->addStretch();
-    headerLayout->addWidget(hideCurrentBtn);
-    headerLayout->addWidget(refreshBtn);
 
     // 创建表格
     windowsTable = new QTableWidget();
@@ -137,8 +127,6 @@ void MainWindow::setupUI()
     // 连接信号
     connect(windowsTable, &QTableWidget::customContextMenuRequested,
         this, &MainWindow::onTableContextMenu);
-    connect(refreshBtn, &QPushButton::clicked, this, &MainWindow::refreshAllLists);
-    connect(hideCurrentBtn, &QPushButton::clicked, this, &MainWindow::minimizeActiveToTray);
 
     // === 设置页面 ===
     QWidget* settingsTab = new QWidget();

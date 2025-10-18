@@ -76,8 +76,6 @@ private:
 
     // 主页面组件 - 任务管理器风格
     QTableWidget* windowsTable;
-    QPushButton* refreshBtn;
-    QPushButton* hideCurrentBtn;
     QLabel* statusLabel;
 
     // 右键菜单
