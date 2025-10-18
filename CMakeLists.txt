@@ -42,3 +42,9 @@ target_link_libraries(${PROJECT_NAME}
         ${WIN32_LIBS}
 )
 
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_SOURCE_DIR}/language"
+    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/language"
+    COMMENT "Copying language files to output directory"
+)
