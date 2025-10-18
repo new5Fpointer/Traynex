@@ -1,0 +1,90 @@
+[MainWindow]
+
+; === Main Window/Tabs/Titles/Basic Information ===
+Main=Main
+Settings=Settings
+About=About
+Window Tray Manager=Window Tray Manager
+Version=Version
+Description=Description
+Usage=Usage
+Thank you for using our application!=Thank you for using our application!
+My Application - Window Manager=My Application - Window Manager
+
+; === Window List/Table Related Translations ===
+Window Title=Window Title
+Process=Process
+Status=Status
+Handle=Handle
+Ready=Ready
+Hidden=Hidden
+Visible=Visible
+Minimized=Minimized
+Refresh List=Refresh List
+
+; === Hidden Window Management/Restore Operations ===
+Hidden Windows Manager=Hidden Windows Manager
+Currently Hidden Windows=Currently Hidden Windows
+No windows are currently hidden=No windows are currently hidden
+%1 windows are currently hidden=%1 windows are currently hidden
+Restore=Restore
+Restore Selected=Restore Selected
+Restore All=Restore All
+Restore All Windows=Restore All Windows
+Please select a window to restore=Please select a window to restore
+Would restore: %1=Would restore: %1
+
+; === Quick Actions/Tray Menu/Right-click Menu ===
+Quick Actions=Quick Actions
+Minimize Current Active Window=Minimize Current Active Window
+Open Main Window=Open Main Window
+Exit=Exit
+Window Tray Manager - Right click for menu=Window Tray Manager - Right click for menu
+Hide to Tray=Hide to Tray
+Restore from Tray=Restore from Tray
+Bring to Front=Bring to Front
+End Task=End Task
+
+; === Hotkeys/Shortcut Information ===
+Hotkey=Hotkey
+Hotkey: Win + Shift + Z=Hotkey: Win + Shift + Z
+Enable Hotkey (Win+Shift+Z)=Enable Hotkey (Win+Shift+Z)
+Double-click tray icon to restore window=Double-click tray icon to restore window
+Hotkey support (Win+Shift+Z)=Hotkey support (Win+Shift+Z)
+
+; === Settings Page/Configuration Items ===
+Application Settings=Application Settings
+General Settings=General Settings
+Start with Windows=Start with Windows
+Auto Refresh Settings=Auto Refresh Settings
+Enable auto refresh=Enable auto refresh
+Refresh interval:=Refresh interval:
+seconds=seconds
+ms=ms
+Window Settings=Window Settings
+Maximum hidden windows:=Maximum hidden windows:
+windows=windows
+Language:=Language:
+Save Settings=Save Settings
+
+; === Error/Warning/Success/Prompt Messages ===
+Error=Error
+Warning=Warning
+Information=Information
+Success=Success
+Failed to initialize Windows tray manager=Failed to initialize Windows tray manager
+The selected window is no longer available=The selected window is no longer available
+Failed to restore the window=Failed to restore the window
+Please select a window to hide=Please select a window to hide
+Window hidden to tray successfully=Window hidden to tray successfully
+Failed to hide window to tray=Failed to hide window to tray
+Settings saved successfully!=Settings saved successfully!
+
+; === About Page/Feature List/External Links ===
+Visit GitHub Repository=Visit GitHub Repository
+Check for Updates=Check for Updates
+A powerful tool to manage your windows efficiently.=A powerful tool to manage your windows efficiently.
+Features:=Features:
+Minimize windows to system tray=Minimize windows to system tray
+Restore windows with double-click=Restore windows with double-click
+Multiple window management=Multiple window management
