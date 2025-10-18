@@ -57,8 +57,8 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 创建定时器用于自动刷新
     refreshTimer = new QTimer(this);
-    connect(refreshTimer, &QTimer::timeout, this, &MainWindow::refreshHiddenWindowsList);
-    refreshTimer->start(1000); // 每1秒刷新一次
+    connect(refreshTimer, &QTimer::timeout, this, &MainWindow::refreshWindowsTable);
+    refreshTimer->start(500); // 每500ms刷新一次
 
     // 初始隐藏主窗口
     hide();
@@ -162,9 +162,9 @@ void MainWindow::setupUI()
     QFormLayout* refreshLayout = new QFormLayout(refreshGroup);
 
     refreshIntervalSpin = new QSpinBox();
-    refreshIntervalSpin->setRange(1, 60);
-    refreshIntervalSpin->setValue(1);
-    refreshIntervalSpin->setSuffix(trc("MainWindow", "seconds"));
+    refreshIntervalSpin->setRange(100, 1000);
+    refreshIntervalSpin->setValue(500);
+    refreshIntervalSpin->setSuffix(trc("MainWindow", "ms"));
 
     autoRefreshCheck = new QCheckBox(trc("MainWindow", "Enable auto refresh"));
     autoRefreshCheck->setChecked(true);
@@ -323,7 +323,7 @@ void MainWindow::updateSettings()
 
     // 应用刷新设置
     if (autoRefreshCheck->isChecked()) {
-        refreshTimer->start(refreshIntervalSpin->value() * 1000);
+        refreshTimer->start(refreshIntervalSpin->value());
     }
     else {
         refreshTimer->stop();
@@ -378,9 +378,8 @@ void MainWindow::showWindow()
     activateWindow();
     refreshAllLists();
 
-    // 确保定时器运行
-    if (refreshTimer && !refreshTimer->isActive()) {
-        refreshTimer->start(1000);
+    if (autoRefreshCheck->isChecked() && refreshTimer && !refreshTimer->isActive()) {
+        refreshTimer->start(refreshIntervalSpin->value());
     }
 }
 
@@ -483,12 +482,12 @@ void MainWindow::loadSettings()
     // 刷新设置
     bool autoRefresh = settings.value("refresh/auto_refresh", true).toBool();
     autoRefreshCheck->setChecked(autoRefresh);
-    int refreshInterval = settings.value("refresh/interval", 1).toInt();
+    int refreshInterval = settings.value("refresh/interval", 500).toInt();
     refreshIntervalSpin->setValue(refreshInterval);
 
     // 应用刷新设置到定时器
     if (autoRefresh) {
-        refreshTimer->start(refreshInterval * 1000);
+        refreshTimer->start(refreshInterval);
     }
     else {
         refreshTimer->stop();
