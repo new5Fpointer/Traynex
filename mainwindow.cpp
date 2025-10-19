@@ -32,15 +32,23 @@ MainWindow::MainWindow(QWidget* parent)
     , quitAction(nullptr)
     , refreshTimer(nullptr)
 {
-    // 加载语言文件
-    QString langFile = "./language/zh.lang";
-    Translator::instance().loadLanguage(langFile);
+    // 创建 UI
+    setupUI();
+    setupConnections();
+
+    // 创建定时器
+    refreshTimer = new QTimer(this);
+    connect(refreshTimer, &QTimer::timeout, this, &MainWindow::refreshWindowsTable);
+    refreshTimer->start(500);
+
+    // 加载设置
+    loadSettings();
+
+    QString language = languageCombo->currentData().toString();
+    loadLanguage(language);
 
     setWindowTitle(trc("MainWindow", "My Application - Window Manager"));
     resize(600, 500);
-
-    // 设置窗口图标
-    setWindowIcon(QApplication::style()->standardIcon(QStyle::SP_ComputerIcon));
 
     // 初始化 Windows 原生托盘管理器
     if (!WindowsTrayManager::instance().initialize()) {
@@ -48,28 +56,13 @@ MainWindow::MainWindow(QWidget* parent)
             trc("MainWindow", "Failed to initialize Windows tray manager"));
     }
 
-    // 创建 UI
-    setupUI();
-    setupConnections();
-
     // 创建 Qt 托盘
     createTrayIcon();
-
-    // 创建定时器用于自动刷新
-    refreshTimer = new QTimer(this);
-    connect(refreshTimer, &QTimer::timeout, this, &MainWindow::refreshWindowsTable);
-    refreshTimer->start(500); // 每500ms刷新一次
 
     // 初始隐藏主窗口
     hide();
 
     refreshAllLists();
-
-    // 加载设置
-    loadSettings();
-
-    QString language = languageCombo->currentData().toString();
-    loadLanguage(language);
 }
 
 MainWindow::~MainWindow()
@@ -140,6 +133,7 @@ void MainWindow::setupUI()
 
     // 常规设置
     QGroupBox* generalGroup = new QGroupBox(trc("MainWindow", "General Settings"));
+    generalGroup->setObjectName("generalGroup"); // 设置对象名称
     QVBoxLayout* generalLayout = new QVBoxLayout(generalGroup);
 
     startWithSystemCheck = new QCheckBox(trc("MainWindow", "Start with Windows"));
@@ -149,7 +143,9 @@ void MainWindow::setupUI()
     generalLayout->addWidget(startWithSystemCheck);
     generalLayout->addWidget(enableHotkeyCheck);
 
+    // 自动刷新设置
     QGroupBox* refreshGroup = new QGroupBox(trc("MainWindow", "Auto Refresh Settings"));
+    refreshGroup->setObjectName("refreshGroup"); // 设置对象名称
     QFormLayout* refreshLayout = new QFormLayout(refreshGroup);
 
     refreshIntervalSpin = new QSpinBox();
@@ -160,11 +156,16 @@ void MainWindow::setupUI()
     autoRefreshCheck = new QCheckBox(trc("MainWindow", "Enable auto refresh"));
     autoRefreshCheck->setChecked(true);
 
+    // 创建刷新间隔标签并设置对象名称
+    QLabel* refreshIntervalLabel = new QLabel(trc("MainWindow", "Refresh interval:"));
+    refreshIntervalLabel->setObjectName("refreshIntervalLabel");
+
     refreshLayout->addRow(autoRefreshCheck);
-    refreshLayout->addRow(trc("MainWindow", "Refresh interval:"), refreshIntervalSpin);
+    refreshLayout->addRow(refreshIntervalLabel, refreshIntervalSpin);
 
     // 窗口设置
     QGroupBox* windowGroup = new QGroupBox(trc("MainWindow", "Window Settings"));
+    windowGroup->setObjectName("windowGroup"); // 设置对象名称
     QFormLayout* windowLayout = new QFormLayout(windowGroup);
 
     maxWindowsSpin = new QSpinBox();
@@ -177,8 +178,15 @@ void MainWindow::setupUI()
     languageCombo->addItem("中文", "zh");
     languageCombo->addItem("日本語", "ja");
 
-    windowLayout->addRow(trc("MainWindow", "Maximum hidden windows:"), maxWindowsSpin);
-    windowLayout->addRow(trc("MainWindow", "Language:"), languageCombo);
+    // 创建表单标签并设置对象名称
+    QLabel* maxWindowsLabel = new QLabel(trc("MainWindow", "Maximum hidden windows:"));
+    maxWindowsLabel->setObjectName("maxWindowsLabel");
+
+    QLabel* languageLabel = new QLabel(trc("MainWindow", "Language:"));
+    languageLabel->setObjectName("languageLabel");
+
+    windowLayout->addRow(maxWindowsLabel, maxWindowsSpin);
+    windowLayout->addRow(languageLabel, languageCombo);
 
     // 保存设置按钮
     saveSettingsButton = new QPushButton(trc("MainWindow", "Save Settings"));
@@ -195,6 +203,7 @@ void MainWindow::setupUI()
     QVBoxLayout* aboutLayout = new QVBoxLayout(aboutTab);
 
     QLabel* aboutTitle = new QLabel(trc("MainWindow", "About"));
+    aboutTitle->setObjectName("aboutTitle"); // 设置对象名称
     aboutTitle->setStyleSheet("font-size: 16px; font-weight: bold; margin: 10px;");
 
     aboutLabel = new QLabel();
@@ -221,7 +230,10 @@ void MainWindow::setupUI()
     aboutLabel->setText(aboutText);
 
     QPushButton* githubButton = new QPushButton(trc("MainWindow", "Visit GitHub Repository"));
+    githubButton->setObjectName("githubButton"); // 设置对象名称
+
     QPushButton* checkUpdateButton = new QPushButton(trc("MainWindow", "Check for Updates"));
+    checkUpdateButton->setObjectName("checkUpdateButton"); // 设置对象名称
 
     aboutLayout->addWidget(aboutTitle);
     aboutLayout->addWidget(aboutLabel);
@@ -464,6 +476,7 @@ void MainWindow::loadSettings()
 
     // 热键设置
     bool hotkeyEnabled = settings.value("hotkey/enabled", true).toBool();
+
     enableHotkeyCheck->setChecked(hotkeyEnabled);
 
     // 窗口设置
