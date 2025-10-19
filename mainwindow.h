@@ -57,6 +57,9 @@ private:
     void refreshWindowsTable();
     void createContextMenu();
 
+    void loadLanguage(const QString& language);
+    void retranslateUI();
+
     struct WindowInfo {
         QString title;
         QString processName;

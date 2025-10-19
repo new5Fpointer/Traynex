@@ -67,6 +67,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     // 加载设置
     loadSettings();
+
+    QString language = languageCombo->currentData().toString();
+    loadLanguage(language);
 }
 
 MainWindow::~MainWindow()
@@ -237,7 +240,7 @@ void MainWindow::setupUI()
 
     // 连接快速操作按钮
     connect(githubButton, &QPushButton::clicked, []() {
-        QDesktopServices::openUrl(QUrl("https://github.com/your-repo/window-tray-manager"));
+        QDesktopServices::openUrl(QUrl("https://github.com/new5Fpointer/Traynex"));
         });
     connect(checkUpdateButton, &QPushButton::clicked, this, &MainWindow::showAbout);
 }
@@ -307,7 +310,17 @@ void MainWindow::restoreAllWindows()
 
 void MainWindow::updateSettings()
 {
+    // 检查语言是否发生变化
+    QString oldLanguage = ""; // 可以从设置中获取旧值
+    QString newLanguage = languageCombo->currentData().toString();
+    bool languageChanged = (oldLanguage != newLanguage);
+
     saveSettings();
+
+    // 如果语言发生变化，重新加载语言
+    if (languageChanged) {
+        loadLanguage(newLanguage);
+    }
 
     // 应用刷新设置
     if (autoRefreshCheck->isChecked()) {
@@ -316,12 +329,6 @@ void MainWindow::updateSettings()
     else {
         refreshTimer->stop();
     }
-    // 应用设置（这里可以添加实时生效的逻辑）
-    bool hotkeyEnabled = enableHotkeyCheck->isChecked();
-    // TODO: 实际启用/禁用热键
-
-    QString language = languageCombo->currentData().toString();
-    // TODO: 重新加载语言文件
 
     QMessageBox::information(this, trc("MainWindow", "Success"),
         trc("MainWindow", "Settings saved successfully!"));
@@ -329,19 +336,25 @@ void MainWindow::updateSettings()
 
 void MainWindow::showAbout()
 {
-    QMessageBox::about(this, trc("MainWindow", "About"),
-        trc("MainWindow",
-            "<h3>Window Tray Manager</h3>"
-            "<p>Version: 1.0.0</p>"
-            "<p>A powerful tool to manage your windows efficiently.</p>"
-            "<p>Features:</p>"
-            "<ul>"
-            "<li>Minimize windows to system tray</li>"
-            "<li>Restore windows with double-click</li>"
-            "<li>Hotkey support (Win+Shift+Z)</li>"
-            "<li>Multiple window management</li>"
-            "</ul>"
-        ));
+    if (aboutLabel) {
+        QString aboutText = QString(
+            "<h3>%1</h3>"
+            "<p><b>%2:</b> 1.0.0</p>"
+            "<p><b>%3:</b> A powerful window management tool that allows you to minimize windows to system tray.</p>"
+            "<p><b>%4:</b> Win + Shift + Z - Minimize active window to tray</p>"
+            "<p><b>%5:</b> Double-click tray icon to restore window</p>"
+            "<hr>"
+            "<p>%6</p>"
+        ).arg(
+            trc("MainWindow", "Window Tray Manager"),
+            trc("MainWindow", "Version"),
+            trc("MainWindow", "Description"),
+            trc("MainWindow", "Hotkey"),
+            trc("MainWindow", "Usage"),
+            trc("MainWindow", "Thank you for using our application!")
+        );
+        aboutLabel->setText(aboutText);
+    }
 }
 
 QString MainWindow::trc(const char* context, const char* source) const
@@ -797,4 +810,107 @@ void MainWindow::refreshAllLists()
 {
     refreshWindowsTable();
     refreshHiddenWindowsList();
+}
+
+void MainWindow::loadLanguage(const QString& language)
+{
+    QString langFile = QString("./language/%1.lang").arg(language);
+    if (!Translator::instance().loadLanguage(langFile)) {
+        // 如果指定语言文件加载失败，尝试加载默认语言
+        Translator::instance().loadLanguage("./language/zh.lang");
+    }
+
+    // 重新翻译所有UI文本
+    retranslateUI();
+}
+
+void MainWindow::retranslateUI()
+{
+    // 更新窗口标题
+    setWindowTitle(trc("MainWindow", "My Application - Window Manager"));
+
+    // 更新表格标题
+    windowsTable->setHorizontalHeaderLabels({
+        trc("MainWindow", "Window Title"),
+        trc("MainWindow", "Process"),
+        trc("MainWindow", "Status"),
+        trc("MainWindow", "Handle")
+        });
+
+    // 更新标签页标题
+    tabWidget->setTabText(0, trc("MainWindow", "Main"));
+    tabWidget->setTabText(1, trc("MainWindow", "Settings"));
+    tabWidget->setTabText(2, trc("MainWindow", "About"));
+
+    // 更新状态标签
+    statusLabel->setText(trc("MainWindow", "Ready"));
+
+    // 更新托盘菜单
+    if (trayIcon) {
+        showAction->setText(trc("MainWindow", "Open Main Window"));
+        restoreAllAction->setText(trc("MainWindow", "Restore All Windows"));
+        quitAction->setText(trc("MainWindow", "Exit"));
+        trayIcon->setToolTip(trc("MainWindow", "Window Tray Manager - Right click for menu"));
+    }
+
+    // 更新设置页面
+    // 组标题
+    if (auto generalGroup = findChild<QGroupBox*>("generalGroup")) {
+        generalGroup->setTitle(trc("MainWindow", "General Settings"));
+    }
+    if (auto refreshGroup = findChild<QGroupBox*>("refreshGroup")) {
+        refreshGroup->setTitle(trc("MainWindow", "Auto Refresh Settings"));
+    }
+    if (auto windowGroup = findChild<QGroupBox*>("windowGroup")) {
+        windowGroup->setTitle(trc("MainWindow", "Window Settings"));
+    }
+
+    // 复选框和标签
+    startWithSystemCheck->setText(trc("MainWindow", "Start with Windows"));
+    enableHotkeyCheck->setText(trc("MainWindow", "Enable Hotkey (Win+Shift+Z)"));
+    autoRefreshCheck->setText(trc("MainWindow", "Enable auto refresh"));
+
+    // 表单标签
+    if (auto refreshLabel = findChild<QLabel*>("refreshIntervalLabel")) {
+        refreshLabel->setText(trc("MainWindow", "Refresh interval:"));
+    }
+    if (auto maxWindowsLabel = findChild<QLabel*>("maxWindowsLabel")) {
+        maxWindowsLabel->setText(trc("MainWindow", "Maximum hidden windows:"));
+    }
+    if (auto languageLabel = findChild<QLabel*>("languageLabel")) {
+        languageLabel->setText(trc("MainWindow", "Language:"));
+    }
+
+    // 按钮
+    saveSettingsButton->setText(trc("MainWindow", "Save Settings"));
+
+    // 更新关于页面
+    if (auto aboutTitle = findChild<QLabel*>("aboutTitle")) {
+        aboutTitle->setText(trc("MainWindow", "About"));
+    }
+
+    // 关于页面按钮
+    if (auto githubButton = findChild<QPushButton*>("githubButton")) {
+        githubButton->setText(trc("MainWindow", "Visit GitHub Repository"));
+    }
+    if (auto checkUpdateButton = findChild<QPushButton*>("checkUpdateButton")) {
+        checkUpdateButton->setText(trc("MainWindow", "Check for Updates"));
+    }
+
+    // 更新关于文本
+    showAbout();
+
+    // 更新右键菜单
+    if (contextMenu) {
+        hideToTrayAction->setText(trc("MainWindow", "Hide to Tray"));
+        restoreAction->setText(trc("MainWindow", "Restore from Tray"));
+        bringToFrontAction->setText(trc("MainWindow", "Bring to Front"));
+        endTaskAction->setText(trc("MainWindow", "End Task"));
+    }
+
+    // 刷新状态标签
+    refreshHiddenWindowsList();
+
+    // 刷新表格内容
+    refreshWindowsTable();
 }
