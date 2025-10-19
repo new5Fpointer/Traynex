@@ -128,6 +128,9 @@ void MainWindow::setupUI()
     QWidget* settingsTab = new QWidget();
     QVBoxLayout* settingsLayout = new QVBoxLayout(settingsTab);
 
+    QLabel* settingsTitle = new QLabel(trc("MainWindow", "Application Settings"));
+    settingsTitle->setStyleSheet("font-size: 16px; font-weight: bold; margin: 10px;");
+
     // 常规设置
     QGroupBox* generalGroup = new QGroupBox(trc("MainWindow", "General Settings"));
     generalGroup->setObjectName("generalGroup"); // 设置对象名称
@@ -173,6 +176,7 @@ void MainWindow::setupUI()
     languageCombo = new QComboBox();
     languageCombo->addItem("English", "en");
     languageCombo->addItem("中文", "zh");
+    languageCombo->addItem("日本語", "ja");
 
     // 创建表单标签并设置对象名称
     QLabel* maxWindowsLabel = new QLabel(trc("MainWindow", "Maximum hidden windows:"));
@@ -187,6 +191,7 @@ void MainWindow::setupUI()
     // 保存设置按钮
     saveSettingsButton = new QPushButton(trc("MainWindow", "Save Settings"));
 
+    settingsLayout->addWidget(settingsTitle);
     settingsLayout->addWidget(generalGroup);
     settingsLayout->addWidget(refreshGroup);
     settingsLayout->addWidget(windowGroup);
@@ -196,6 +201,10 @@ void MainWindow::setupUI()
     // === 关于页面 ===
     QWidget* aboutTab = new QWidget();
     QVBoxLayout* aboutLayout = new QVBoxLayout(aboutTab);
+
+    QLabel* aboutTitle = new QLabel(trc("MainWindow", "About"));
+    aboutTitle->setObjectName("aboutTitle"); // 设置对象名称
+    aboutTitle->setStyleSheet("font-size: 16px; font-weight: bold; margin: 10px;");
 
     aboutLabel = new QLabel();
     aboutLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -226,6 +235,7 @@ void MainWindow::setupUI()
     QPushButton* checkUpdateButton = new QPushButton(trc("MainWindow", "Check for Updates"));
     checkUpdateButton->setObjectName("checkUpdateButton"); // 设置对象名称
 
+    aboutLayout->addWidget(aboutTitle);
     aboutLayout->addWidget(aboutLabel);
     aboutLayout->addWidget(githubButton);
     aboutLayout->addWidget(checkUpdateButton);
