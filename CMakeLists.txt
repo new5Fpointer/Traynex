@@ -16,13 +16,13 @@ find_package(Qt${QT_VERSION_MAJOR}
 qt_standard_project_setup()
 
 set(PROJECT_SOURCES
-    main.cpp
-    mainwindow.h
-    mainwindow.cpp
-    translator.h
-    translator.cpp
-    windowstraymanager.h
-    windowstraymanager.cpp
+    src/main.cpp
+    src/mainwindow.h
+    src/mainwindow.cpp
+    src/translator.h
+    src/translator.cpp
+    src/windowstraymanager.h
+    src/windowstraymanager.cpp
 )
 
 set(WIN32_LIBS shell32 user32 psapi)
