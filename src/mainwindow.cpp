@@ -21,6 +21,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QDir>
+#include <QThread>
 #include <windows.h>
 #include <psapi.h>
 
@@ -552,17 +553,20 @@ void MainWindow::createContextMenu()
     hideToTrayAction = new QAction(trc("MainWindow", "Hide to Tray"), this);
     restoreAction = new QAction(trc("MainWindow", "Restore from Tray"), this);
     bringToFrontAction = new QAction(trc("MainWindow", "Bring to Front"), this);
+    highlightAction = new QAction(trc("MainWindow", "Highlight Window"), this);
     endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
 
     connect(hideToTrayAction, &QAction::triggered, this, &MainWindow::hideSelectedToTray);
     connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedWindow);
     connect(bringToFrontAction, &QAction::triggered, this, &MainWindow::bringToFront);
+    connect(highlightAction, &QAction::triggered, this, &MainWindow::highlightWindow);
     connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
 
     contextMenu->addAction(hideToTrayAction);
     contextMenu->addAction(restoreAction);
     contextMenu->addSeparator();
     contextMenu->addAction(bringToFrontAction);
+    contextMenu->addAction(highlightAction);
     contextMenu->addSeparator();
     contextMenu->addAction(endTaskAction);
 }
@@ -613,6 +617,7 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
     hideToTrayAction->setEnabled(!isHidden);
     restoreAction->setEnabled(isHidden);
     bringToFrontAction->setEnabled(true);
+    highlightAction->setEnabled(true);
     endTaskAction->setEnabled(true);
 
     // 显示菜单
@@ -906,6 +911,7 @@ void MainWindow::retranslateUI()
         hideToTrayAction->setText(trc("MainWindow", "Hide to Tray"));
         restoreAction->setText(trc("MainWindow", "Restore from Tray"));
         bringToFrontAction->setText(trc("MainWindow", "Bring to Front"));
+        highlightAction->setText(trc("MainWindow", "Highlight Window"));
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
 
@@ -1067,4 +1073,35 @@ void MainWindow::updateWindowFlags()
     }
 
     qDebug() << "Window always on top:" << alwaysOnTop;
+}
+
+void MainWindow::highlightWindow()
+{
+    HWND hwnd = getSelectedWindow();
+    if (!hwnd) {
+        QMessageBox::information(this, trc("MainWindow", "Information"),
+            trc("MainWindow", "Please select a window to highlight"));
+        return;
+    }
+
+    if (!hwnd || !IsWindow(hwnd)) {
+        QMessageBox::warning(this, trc("MainWindow", "Warning"),
+            trc("MainWindow", "The selected window is no longer available"));
+        refreshAllLists();
+        return;
+    }
+
+    // 高亮选中的窗口
+    flashWindowInTaskbar(hwnd);
+}
+
+void MainWindow::flashWindowInTaskbar(HWND hwnd)
+{
+    if (!hwnd || !IsWindow(hwnd)) {
+        return;
+    }
+
+    FlashWindow(hwnd, TRUE);
+    
+    qDebug() << "Window highlighted:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
 }

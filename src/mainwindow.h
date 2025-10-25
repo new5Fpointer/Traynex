@@ -49,6 +49,7 @@ private slots:
     void onMaxWindowsChanged();
     void autoSaveSettings();
     void onAlwaysOnTopChanged();
+    void highlightWindow();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -67,6 +68,8 @@ private:
     void retranslateUI();
 
     void updateWindowFlags();
+
+    void flashWindowInTaskbar(HWND hwnd);
 
     struct WindowInfo {
         QString title;
@@ -94,6 +97,7 @@ private:
     QAction* hideToTrayAction;
     QAction* restoreAction;
     QAction* bringToFrontAction;
+    QAction* highlightAction;
     QAction* endTaskAction;
 
     // 设置页面组件
