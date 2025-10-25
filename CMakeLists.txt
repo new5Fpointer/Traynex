@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(QtWidgetsApplication1 LANGUAGES CXX)
+project(Tarynex LANGUAGES CXX)
 
 include(qt.cmake)
 
@@ -23,15 +23,24 @@ set(PROJECT_SOURCES
     src/translator.cpp
     src/windowstraymanager.h
     src/windowstraymanager.cpp
+    resource.qrc
 )
 
 set(WIN32_LIBS shell32 user32 psapi)
 
-qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+qt_add_resources(QT_RESOURCES
+    resource.qrc
+)
+
+qt_add_executable(${PROJECT_NAME}
+    ${PROJECT_SOURCES}
+    ${QT_RESOURCES}
+)
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
         WIN32_EXECUTABLE TRUE
+        RC_ICONS "${CMAKE_SOURCE_DIR}/icon/icon.ico"
 )
 
 target_link_libraries(${PROJECT_NAME}

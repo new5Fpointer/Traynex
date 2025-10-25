@@ -1,14 +1,19 @@
 #include <QApplication>
 #include <QSystemTrayIcon>
-#include <QMessageBox>
+#include <QMenu>
+#include <QMainWindow>
+#include <QDebug>
+#include <QMessagebox>
 #include "mainwindow.h"
 #include "windowstraymanager.h"
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
 
-    // 检查系统托盘是否可用
+    // 创建托盘图标
+    QSystemTrayIcon trayIcon;
+    trayIcon.setIcon(QIcon(":/icon/icon.png"));
+
     if (!QSystemTrayIcon::isSystemTrayAvailable()) {
         qCritical() << "System tray is not available on this system.";
         return 1;
@@ -20,6 +25,8 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    // 显示托盘图标并保持程序运行
+    trayIcon.show();
     // 设置应用程序属性
     app.setQuitOnLastWindowClosed(false);
 
