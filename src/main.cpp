@@ -12,8 +12,12 @@ int main(int argc, char* argv[])
 
     // 设置应用程序属性
     app.setApplicationName("Traynex");
-    app.setApplicationVersion("0.0.1");
+    app.setApplicationVersion("1.0.0");
     app.setQuitOnLastWindowClosed(false);
+
+    // 设置应用程序图标
+    QIcon appIcon(":/icon/icon.png");
+    app.setWindowIcon(appIcon);
 
     // 检查系统托盘是否可用
     if (!QSystemTrayIcon::isSystemTrayAvailable()) {

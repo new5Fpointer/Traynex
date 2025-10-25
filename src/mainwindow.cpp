@@ -47,7 +47,7 @@ MainWindow::MainWindow(QWidget* parent)
     QString language = languageCombo->currentData().toString();
     loadLanguage(language);
 
-    setWindowTitle(trc("MainWindow", "My Application - Window Manager"));
+    setWindowTitle("Traynex");
     resize(600, 500);
 
     // 初始化 Windows 原生托盘管理器
@@ -428,8 +428,6 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::createTrayIcon()
 {
-    qDebug() << "Creating tray icon...";
-
     // 创建菜单
     trayMenu = new QMenu(this);
 
