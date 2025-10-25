@@ -50,6 +50,7 @@ private slots:
     void autoSaveSettings();
     void onAlwaysOnTopChanged();
     void highlightWindow();
+    void toggleWindowOnTop();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -70,6 +71,9 @@ private:
     void updateWindowFlags();
 
     void flashWindowInTaskbar(HWND hwnd);
+
+    bool isWindowOnTop(HWND hwnd);
+    void setWindowOnTop(HWND hwnd, bool onTop);
 
     struct WindowInfo {
         QString title;
@@ -98,6 +102,7 @@ private:
     QAction* restoreAction;
     QAction* bringToFrontAction;
     QAction* highlightAction;
+    QAction* toggleOnTopAction;
     QAction* endTaskAction;
 
     // 设置页面组件

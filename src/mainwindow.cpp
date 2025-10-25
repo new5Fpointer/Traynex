@@ -50,7 +50,7 @@ MainWindow::MainWindow(QWidget* parent)
     loadLanguage(language);
 
     setWindowTitle("Traynex");
-    resize(600, 500);
+    resize(700, 500);
 
     // 初始化 Windows 原生托盘管理器
     if (!WindowsTrayManager::instance().initialize()) {
@@ -554,12 +554,14 @@ void MainWindow::createContextMenu()
     restoreAction = new QAction(trc("MainWindow", "Restore from Tray"), this);
     bringToFrontAction = new QAction(trc("MainWindow", "Bring to Front"), this);
     highlightAction = new QAction(trc("MainWindow", "Highlight Window"), this);
+    toggleOnTopAction = new QAction(trc("MainWindow", "Toggle Always on Top"), this);
     endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
 
     connect(hideToTrayAction, &QAction::triggered, this, &MainWindow::hideSelectedToTray);
     connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedWindow);
     connect(bringToFrontAction, &QAction::triggered, this, &MainWindow::bringToFront);
     connect(highlightAction, &QAction::triggered, this, &MainWindow::highlightWindow);
+    connect(toggleOnTopAction, &QAction::triggered, this, &MainWindow::toggleWindowOnTop);
     connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
 
     contextMenu->addAction(hideToTrayAction);
@@ -567,6 +569,7 @@ void MainWindow::createContextMenu()
     contextMenu->addSeparator();
     contextMenu->addAction(bringToFrontAction);
     contextMenu->addAction(highlightAction);
+    contextMenu->addAction(toggleOnTopAction);
     contextMenu->addSeparator();
     contextMenu->addAction(endTaskAction);
 }
@@ -613,12 +616,21 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
     // 根据窗口状态更新菜单项
     QTableWidgetItem* statusItem = windowsTable->item(row, 2);
     bool isHidden = statusItem && statusItem->text() == trc("MainWindow", "Hidden");
+    bool isOnTop = isWindowOnTop(hwnd);
 
     hideToTrayAction->setEnabled(!isHidden);
     restoreAction->setEnabled(isHidden);
     bringToFrontAction->setEnabled(true);
     highlightAction->setEnabled(true);
+    toggleOnTopAction->setEnabled(true);
     endTaskAction->setEnabled(true);
+
+    if (isOnTop) {
+        toggleOnTopAction->setText(trc("MainWindow", "Remove Always on Top"));
+    }
+    else {
+        toggleOnTopAction->setText(trc("MainWindow", "Set Always on Top"));
+    }
 
     // 显示菜单
     contextMenu->exec(windowsTable->viewport()->mapToGlobal(pos));
@@ -675,6 +687,7 @@ void MainWindow::refreshWindowsTable()
         // 状态
         QString status;
         QColor statusColor;
+        bool isOnTop = isWindowOnTop(window.second.hwnd);
         if (window.second.isHidden) {
             status = trc("MainWindow", "Hidden");
             statusColor = Qt::red;
@@ -690,6 +703,13 @@ void MainWindow::refreshWindowsTable()
 
         QTableWidgetItem* statusItem = new QTableWidgetItem(status);
         statusItem->setForeground(statusColor);
+
+        QString tooltip = QString("Title: %1\nProcess: %2\nHandle: %3\nStatus: %4")
+            .arg(window.second.title)
+            .arg(window.second.processName)
+            .arg(QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper())
+            .arg(status);
+        statusItem->setToolTip(tooltip);
 
         // 窗口句柄
         QTableWidgetItem* handleItem = new QTableWidgetItem(
@@ -912,6 +932,7 @@ void MainWindow::retranslateUI()
         restoreAction->setText(trc("MainWindow", "Restore from Tray"));
         bringToFrontAction->setText(trc("MainWindow", "Bring to Front"));
         highlightAction->setText(trc("MainWindow", "Highlight Window"));
+        toggleOnTopAction->setText(trc("MainWindow", "Toggle Always on Top"));
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
 
@@ -1104,4 +1125,62 @@ void MainWindow::flashWindowInTaskbar(HWND hwnd)
     FlashWindow(hwnd, TRUE);
     
     qDebug() << "Window highlighted:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
+}
+
+bool MainWindow::isWindowOnTop(HWND hwnd)
+{
+    if (!hwnd || !IsWindow(hwnd)) {
+        return false;
+    }
+
+    // 获取窗口扩展样式
+    LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    return (style & WS_EX_TOPMOST) != 0;
+}
+
+void MainWindow::setWindowOnTop(HWND hwnd, bool onTop)
+{
+    if (!hwnd || !IsWindow(hwnd)) {
+        return;
+    }
+
+    // 设置窗口置顶状态
+    SetWindowPos(hwnd,
+        onTop ? HWND_TOPMOST : HWND_NOTOPMOST,
+        0, 0, 0, 0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+    qDebug() << "Window" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16)
+        << "set to" << (onTop ? "always on top" : "normal");
+}
+
+void MainWindow::toggleWindowOnTop()
+{
+    HWND hwnd = getSelectedWindow();
+    if (!hwnd) {
+        QMessageBox::information(this, trc("MainWindow", "Information"),
+            trc("MainWindow", "Please select a window to toggle always on top"));
+        return;
+    }
+
+    if (!hwnd || !IsWindow(hwnd)) {
+        QMessageBox::warning(this, trc("MainWindow", "Warning"),
+            trc("MainWindow", "The selected window is no longer available"));
+        refreshAllLists();
+        return;
+    }
+
+    // 检查当前状态并切换
+    bool currentlyOnTop = isWindowOnTop(hwnd);
+    setWindowOnTop(hwnd, !currentlyOnTop);
+
+    // 刷新显示以更新状态
+    refreshAllLists();
+
+    // 显示操作结果
+    QString message = !currentlyOnTop ?
+        trc("MainWindow", "Window set to always on top") :
+        trc("MainWindow", "Window set to normal (not always on top)");
+
+    QMessageBox::information(this, trc("MainWindow", "Success"), message);
 }
