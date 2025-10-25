@@ -48,6 +48,7 @@ private slots:
     void onStartWithSystemChanged();
     void onMaxWindowsChanged();
     void autoSaveSettings();
+    void onAlwaysOnTopChanged();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -64,6 +65,8 @@ private:
 
     void loadLanguage(const QString& language);
     void retranslateUI();
+
+    void updateWindowFlags();
 
     struct WindowInfo {
         QString title;
@@ -99,6 +102,7 @@ private:
     QSpinBox* maxWindowsSpin;
     QComboBox* languageCombo;
     QPushButton* saveSettingsButton;
+    QCheckBox* alwaysOnTopCheck;
 
     // 关于页面组件
     QLabel* aboutLabel;

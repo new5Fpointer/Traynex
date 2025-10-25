@@ -78,7 +78,7 @@ void MainWindow::setupUI()
 
     tabWidget = new QTabWidget(centralWidget);
 
-    // === 主页面 - 任务管理器风格 ===
+    // === 主页面 ===
     QWidget* mainTab = new QWidget();
     QVBoxLayout* mainLayout = new QVBoxLayout(mainTab);
 
@@ -142,8 +142,12 @@ void MainWindow::setupUI()
     enableHotkeyCheck = new QCheckBox(trc("MainWindow", "Enable Hotkey (Win+Shift+Z)"));
     enableHotkeyCheck->setChecked(true);
 
+    alwaysOnTopCheck = new QCheckBox(trc("MainWindow", "Always on Top"));
+    alwaysOnTopCheck->setToolTip(trc("MainWindow", "Keep the main window always on top of other windows"));
+
     generalLayout->addWidget(startWithSystemCheck);
     generalLayout->addWidget(enableHotkeyCheck);
+    generalLayout->addWidget(alwaysOnTopCheck);
 
     // 自动刷新设置
     QGroupBox* refreshGroup = new QGroupBox(trc("MainWindow", "Auto Refresh Settings"));
@@ -256,6 +260,7 @@ void MainWindow::setupConnections()
     connect(languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onLanguageChanged);
     connect(startWithSystemCheck, &QCheckBox::stateChanged, this, &MainWindow::onStartWithSystemChanged);
     connect(maxWindowsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onMaxWindowsChanged);
+    connect(alwaysOnTopCheck, &QCheckBox::stateChanged, this, &MainWindow::onAlwaysOnTopChanged);
 }
 
 void MainWindow::refreshHiddenWindowsList()
@@ -356,6 +361,8 @@ void MainWindow::minimizeActiveToTray()
 
 void MainWindow::showWindow()
 {
+    updateWindowFlags();
+
     show();
     raise();
     activateWindow();
@@ -468,6 +475,10 @@ void MainWindow::loadSettings()
     bool startWithSystem = settings.value("general/start_with_system", false).toBool();
     startWithSystemCheck->setChecked(startWithSystem);
 
+    // 加载窗口置顶设置
+    bool alwaysOnTop = settings.value("window/always_on_top", false).toBool();
+    alwaysOnTopCheck->setChecked(alwaysOnTop);
+
     QString language = settings.value("general/language", "zh").toString();
     int index = languageCombo->findData(language);
     if (index >= 0) {
@@ -480,9 +491,10 @@ void MainWindow::loadSettings()
     int refreshInterval = settings.value("refresh/interval", 500).toInt();
     refreshIntervalSpin->setValue(refreshInterval);
 
-    // 立即应用加载的设置
+    // 应用加载的设置
     onHotkeySettingChanged();     // 应用热键设置
     onRefreshSettingChanged();    // 应用刷新设置
+    onAlwaysOnTopChanged();       // 应用置顶设置
 
     qDebug() << "Settings loaded and applied from:" << getConfigPath();
 }
@@ -496,6 +508,7 @@ void MainWindow::saveSettings()
 
     // 窗口设置
     settings.setValue("window/max_hidden", maxWindowsSpin->value());
+    settings.setValue("window/always_on_top", alwaysOnTopCheck->isChecked());
 
     // 常规设置
     settings.setValue("general/start_with_system", startWithSystemCheck->isChecked());
@@ -859,6 +872,7 @@ void MainWindow::retranslateUI()
     startWithSystemCheck->setText(trc("MainWindow", "Start with Windows"));
     enableHotkeyCheck->setText(trc("MainWindow", "Enable Hotkey (Win+Shift+Z)"));
     autoRefreshCheck->setText(trc("MainWindow", "Enable auto refresh"));
+    alwaysOnTopCheck->setText(trc("MainWindow", "Always on Top"));
 
     // 表单标签
     if (auto refreshLabel = findChild<QLabel*>("refreshIntervalLabel")) {
@@ -977,7 +991,7 @@ void MainWindow::onMaxWindowsChanged()
 {
     int maxWindows = maxWindowsSpin->value();
 
-    // 更新 WindowsTrayManager 的最大窗口限制
+    // 更新最大窗口限制
     // WindowsTrayManager::instance().setMaxWindows(maxWindows);
 
     qDebug() << "Max windows changed:" << maxWindows;
@@ -990,4 +1004,67 @@ void MainWindow::autoSaveSettings()
 {
     saveSettings();
     qDebug() << "Settings auto-saved";
+}
+
+void MainWindow::onAlwaysOnTopChanged()
+{
+    bool alwaysOnTop = alwaysOnTopCheck->isChecked();
+
+    // 更新窗口标志
+    updateWindowFlags();
+
+    qDebug() << "Always on top changed:" << alwaysOnTop;
+
+    // 自动保存设置
+    QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
+}
+
+void MainWindow::updateWindowFlags()
+{
+    bool alwaysOnTop = alwaysOnTopCheck->isChecked();
+
+    // 检查当前标志是否已经正确设置
+    Qt::WindowFlags currentFlags = windowFlags();
+    bool currentlyOnTop = currentFlags & Qt::WindowStaysOnTopHint;
+
+    // 如果状态没有变化，不需要更新
+    if (currentlyOnTop == alwaysOnTop) {
+        return;
+    }
+
+    // 保存当前窗口状态
+    bool wasVisible = isVisible();
+    QPoint pos = this->pos();
+    QSize size = this->size();
+    int currentTab = tabWidget->currentIndex();
+
+    // 设置新的窗口标志
+    Qt::WindowFlags newFlags = currentFlags;
+
+    if (alwaysOnTop) {
+        newFlags |= Qt::WindowStaysOnTopHint;
+    }
+    else {
+        newFlags &= ~Qt::WindowStaysOnTopHint;
+    }
+
+    // 重新设置窗口标志
+    setWindowFlags(newFlags);
+
+    // 恢复窗口状态
+    move(pos);
+    resize(size);
+    tabWidget->setCurrentIndex(currentTab);
+
+    // 如果窗口原本是可见的，重新显示
+    if (wasVisible) {
+        show();
+        // 短暂延迟后再次置顶，确保效果
+        QTimer::singleShot(10, this, [this]() {
+            raise();
+            activateWindow();
+            });
+    }
+
+    qDebug() << "Window always on top:" << alwaysOnTop;
 }
