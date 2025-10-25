@@ -6,6 +6,7 @@
 #include <QMessageBox>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QHeaderView>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QListWidget>
@@ -94,6 +95,10 @@ void MainWindow::setupUI()
         trc("MainWindow", "Status"),
         trc("MainWindow", "Handle")
         });
+    // 设置固定的行号列宽度
+    windowsTable->verticalHeader()->setDefaultSectionSize(30); // 行高
+    windowsTable->verticalHeader()->setMinimumWidth(20);       // 最小宽度
+    windowsTable->verticalHeader()->setMaximumWidth(20);       // 最大宽度
 
     // 表格属性
     windowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -173,7 +178,6 @@ void MainWindow::setupUI()
     languageCombo = new QComboBox();
     languageCombo->addItem("English", "en");
     languageCombo->addItem("中文", "zh");
-    languageCombo->addItem("日本語", "ja");
 
     // 创建表单标签并设置对象名称
     QLabel* maxWindowsLabel = new QLabel(trc("MainWindow", "Maximum hidden windows:"));
@@ -222,10 +226,10 @@ void MainWindow::setupUI()
     aboutLabel->setText(aboutText);
 
     QPushButton* githubButton = new QPushButton(trc("MainWindow", "Visit GitHub Repository"));
-    githubButton->setObjectName("githubButton"); // 设置对象名称
+    githubButton->setObjectName("githubButton");
 
     QPushButton* checkUpdateButton = new QPushButton(trc("MainWindow", "Check for Updates"));
-    checkUpdateButton->setObjectName("checkUpdateButton"); // 设置对象名称
+    checkUpdateButton->setObjectName("checkUpdateButton");
 
     aboutLayout->addWidget(aboutLabel);
     aboutLayout->addWidget(githubButton);
@@ -255,7 +259,7 @@ void MainWindow::setupConnections()
 
 void MainWindow::refreshHiddenWindowsList()
 {
-    // 从 WindowsTrayManager 获取真实的隐藏窗口列表
+    // 获取隐藏窗口列表
     auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
     int hiddenCount = 0;
 
@@ -370,7 +374,7 @@ void MainWindow::minimizeActiveToTray()
     HWND foregroundWindow = GetForegroundWindow();
     if (foregroundWindow && foregroundWindow != (HWND)winId()) {
         if (WindowsTrayManager::instance().minimizeWindowToTray(foregroundWindow)) {
-            refreshHiddenWindowsList(); // 刷新列表
+            refreshHiddenWindowsList();
         }
     }
 }
