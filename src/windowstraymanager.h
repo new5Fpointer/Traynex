@@ -15,6 +15,7 @@ public:
     void restoreAllWindows();
     bool isInitialized() const { return m_initialized; }
     bool restoreWindow(HWND hwnd);
+    void setHotkeyEnabled(bool enabled);
 
     // 获取隐藏窗口信息
     std::vector<std::pair<HWND, std::wstring>> getHiddenWindows() const;
@@ -49,4 +50,6 @@ private:
     static constexpr int EXIT_ID = 1001;
     static constexpr int RESTORE_ALL_ID = 1002;
     static constexpr int MAX_WINDOWS = 50;
+
+    bool m_hotkeyEnabled = true;
 };

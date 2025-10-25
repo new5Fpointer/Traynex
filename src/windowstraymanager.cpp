@@ -332,7 +332,7 @@ LRESULT CALLBACK WindowsTrayManager::windowProc(HWND hwnd, UINT uMsg, WPARAM wPa
 
     switch (uMsg) {
     case WM_HOTKEY:
-        if (wParam == 1) { // 我们的热键ID
+        if (wParam == 1 && manager->m_hotkeyEnabled) { 
             HWND foregroundWindow = GetForegroundWindow();
             if (foregroundWindow && foregroundWindow != hwnd) {
                 manager->minimizeWindowToTray(foregroundWindow);
@@ -406,4 +406,20 @@ bool WindowsTrayManager::restoreWindow(HWND hwnd)
     saveHiddenWindows();
 
     return true;
+}
+
+void WindowsTrayManager::setHotkeyEnabled(bool enabled)
+{
+    m_hotkeyEnabled = enabled;
+
+    if (m_mainWindow) {
+        if (enabled) {
+            // 注册热键
+            RegisterHotKey(m_mainWindow, 1, MOD_WIN | MOD_SHIFT | MOD_NOREPEAT, 0x5A);
+        }
+        else {
+            // 注销热键
+            UnregisterHotKey(m_mainWindow, 1);
+        }
+    }
 }

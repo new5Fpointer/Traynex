@@ -36,13 +36,18 @@ private slots:
     void refreshHiddenWindowsList();
     void restoreSelectedWindow();
     void restoreAllWindows();
-    void updateSettings();
     void showAbout();
     void refreshAllLists();
     void hideSelectedToTray();
     void onTableContextMenu(const QPoint& pos);
     void bringToFront();
     void endTask();
+    void onHotkeySettingChanged();
+    void onRefreshSettingChanged();
+    void onLanguageChanged();
+    void onStartWithSystemChanged();
+    void onMaxWindowsChanged();
+    void autoSaveSettings();
 
 protected:
     void closeEvent(QCloseEvent* event) override;

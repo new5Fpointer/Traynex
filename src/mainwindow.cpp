@@ -189,13 +189,9 @@ void MainWindow::setupUI()
     windowLayout->addRow(maxWindowsLabel, maxWindowsSpin);
     windowLayout->addRow(languageLabel, languageCombo);
 
-    // 保存设置按钮
-    saveSettingsButton = new QPushButton(trc("MainWindow", "Save Settings"));
-
     settingsLayout->addWidget(generalGroup);
     settingsLayout->addWidget(refreshGroup);
     settingsLayout->addWidget(windowGroup);
-    settingsLayout->addWidget(saveSettingsButton);
     settingsLayout->addStretch();
 
     // === 关于页面 ===
@@ -254,7 +250,12 @@ void MainWindow::setupUI()
 
 void MainWindow::setupConnections()
 {
-    connect(saveSettingsButton, &QPushButton::clicked, this, &MainWindow::updateSettings);
+    connect(enableHotkeyCheck, &QCheckBox::stateChanged, this, &MainWindow::onHotkeySettingChanged);
+    connect(autoRefreshCheck, &QCheckBox::stateChanged, this, &MainWindow::onRefreshSettingChanged);
+    connect(refreshIntervalSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onRefreshSettingChanged);
+    connect(languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onLanguageChanged);
+    connect(startWithSystemCheck, &QCheckBox::stateChanged, this, &MainWindow::onStartWithSystemChanged);
+    connect(maxWindowsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onMaxWindowsChanged);
 }
 
 void MainWindow::refreshHiddenWindowsList()
@@ -313,32 +314,6 @@ void MainWindow::restoreAllWindows()
 {
     WindowsTrayManager::instance().restoreAllWindows();
     refreshHiddenWindowsList();
-}
-
-void MainWindow::updateSettings()
-{
-    // 检查语言是否发生变化
-    QString oldLanguage = ""; // 可以从设置中获取旧值
-    QString newLanguage = languageCombo->currentData().toString();
-    bool languageChanged = (oldLanguage != newLanguage);
-
-    saveSettings();
-
-    // 如果语言发生变化，重新加载语言
-    if (languageChanged) {
-        loadLanguage(newLanguage);
-    }
-
-    // 应用刷新设置
-    if (autoRefreshCheck->isChecked()) {
-        refreshTimer->start(refreshIntervalSpin->value());
-    }
-    else {
-        refreshTimer->stop();
-    }
-
-    QMessageBox::information(this, trc("MainWindow", "Success"),
-        trc("MainWindow", "Settings saved successfully!"));
 }
 
 void MainWindow::showAbout()
@@ -483,7 +458,6 @@ void MainWindow::loadSettings()
 
     // 热键设置
     bool hotkeyEnabled = settings.value("hotkey/enabled", true).toBool();
-
     enableHotkeyCheck->setChecked(hotkeyEnabled);
 
     // 窗口设置
@@ -506,15 +480,11 @@ void MainWindow::loadSettings()
     int refreshInterval = settings.value("refresh/interval", 500).toInt();
     refreshIntervalSpin->setValue(refreshInterval);
 
-    // 应用刷新设置到定时器
-    if (autoRefresh) {
-        refreshTimer->start(refreshInterval);
-    }
-    else {
-        refreshTimer->stop();
-    }
+    // 立即应用加载的设置
+    onHotkeySettingChanged();     // 应用热键设置
+    onRefreshSettingChanged();    // 应用刷新设置
 
-    qDebug() << "Settings loaded from:" << getConfigPath();
+    qDebug() << "Settings loaded and applied from:" << getConfigPath();
 }
 
 void MainWindow::saveSettings()
@@ -901,9 +871,6 @@ void MainWindow::retranslateUI()
         languageLabel->setText(trc("MainWindow", "Language:"));
     }
 
-    // 按钮
-    saveSettingsButton->setText(trc("MainWindow", "Save Settings"));
-
     // 更新关于页面
     if (auto aboutTitle = findChild<QLabel*>("aboutTitle")) {
         aboutTitle->setText(trc("MainWindow", "About"));
@@ -933,4 +900,94 @@ void MainWindow::retranslateUI()
 
     // 刷新表格内容
     refreshWindowsTable();
+}
+
+void MainWindow::onHotkeySettingChanged()
+{
+    bool enabled = enableHotkeyCheck->isChecked();
+
+    // 立即应用热键设置
+    WindowsTrayManager::instance().setHotkeyEnabled(enabled);
+
+    qDebug() << "Hotkey setting changed:" << enabled;
+
+    // 自动保存设置
+    QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
+}
+
+void MainWindow::onRefreshSettingChanged()
+{
+    bool autoRefresh = autoRefreshCheck->isChecked();
+    int interval = refreshIntervalSpin->value();
+
+    // 立即应用刷新设置
+    if (autoRefresh) {
+        refreshTimer->start(interval);
+    }
+    else {
+        refreshTimer->stop();
+    }
+
+    qDebug() << "Refresh setting changed - Auto:" << autoRefresh << "Interval:" << interval;
+
+    // 自动保存设置
+    QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
+}
+
+void MainWindow::onLanguageChanged()
+{
+    QString newLanguage = languageCombo->currentData().toString();
+    QString oldLanguage = ""; // 可以从设置中获取旧值
+
+    // 立即应用语言设置
+    if (oldLanguage != newLanguage) {
+        loadLanguage(newLanguage);
+    }
+
+    qDebug() << "Language changed to:" << newLanguage;
+
+    // 自动保存设置
+    QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
+}
+
+void MainWindow::onStartWithSystemChanged()
+{
+    bool startWithSystem = startWithSystemCheck->isChecked();
+
+    // 设置开机自启动
+    QSettings settings("HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
+
+    QString appName = "Traynex";
+    QString appPath = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+
+    if (startWithSystem) {
+        settings.setValue(appName, appPath);
+    }
+    else {
+        settings.remove(appName);
+    }
+
+    qDebug() << "Start with system changed:" << startWithSystem;
+
+    // 自动保存设置
+    QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
+}
+
+void MainWindow::onMaxWindowsChanged()
+{
+    int maxWindows = maxWindowsSpin->value();
+
+    // 更新 WindowsTrayManager 的最大窗口限制
+    // WindowsTrayManager::instance().setMaxWindows(maxWindows);
+
+    qDebug() << "Max windows changed:" << maxWindows;
+
+    // 自动保存设置
+    QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
+}
+
+void MainWindow::autoSaveSettings()
+{
+    saveSettings();
+    qDebug() << "Settings auto-saved";
 }
