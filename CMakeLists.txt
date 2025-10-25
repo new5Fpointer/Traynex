@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(Tarynex LANGUAGES CXX)
+project(Traynex LANGUAGES CXX)
 
 include(qt.cmake)
 
