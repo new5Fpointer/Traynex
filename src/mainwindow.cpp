@@ -428,16 +428,18 @@ void MainWindow::closeEvent(QCloseEvent* event)
 
 void MainWindow::createTrayIcon()
 {
+    qDebug() << "Creating tray icon...";
+
     // 创建菜单
     trayMenu = new QMenu(this);
 
-    showAction = new QAction(trc("MainWindow", "Open Main Window"), this);
+    showAction = new QAction(tr("显示主窗口"), this);
     connect(showAction, &QAction::triggered, this, &MainWindow::showWindow);
 
-    restoreAllAction = new QAction(trc("MainWindow", "Restore All Windows"), this);
+    restoreAllAction = new QAction(tr("恢复所有窗口"), this);
     connect(restoreAllAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
 
-    quitAction = new QAction(trc("MainWindow", "Exit"), this);
+    quitAction = new QAction(tr("退出"), this);
     connect(quitAction, &QAction::triggered, this, &MainWindow::closeApp);
 
     trayMenu->addAction(showAction);
@@ -448,10 +450,22 @@ void MainWindow::createTrayIcon()
 
     // 创建托盘图标
     trayIcon = new QSystemTrayIcon(this);
+
+    // 设置图标 - 使用简单的资源路径
+    QIcon icon(":/icon/icon.png");
+    if (icon.isNull()) {
+        qWarning() << "Failed to load tray icon from resource, using default";
+        icon = QApplication::style()->standardIcon(QStyle::SP_ComputerIcon);
+    }
+    trayIcon->setIcon(icon);
+
     trayIcon->setContextMenu(trayMenu);
-    trayIcon->setIcon(QApplication::style()->standardIcon(QStyle::SP_ComputerIcon));
-    trayIcon->setToolTip(trc("MainWindow", "Window Tray Manager - Right click for menu"));
+    trayIcon->setToolTip(tr("Traynex"));
+
+    // 连接信号
     connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayActivated);
+
+    // 显示托盘图标
     trayIcon->show();
 }
 
