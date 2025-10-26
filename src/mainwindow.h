@@ -92,7 +92,7 @@ private:
     // UI 组件
     QTabWidget* tabWidget;
 
-    // 主页面组件 - 任务管理器风格
+    // 主页面组件
     QTableWidget* windowsTable;
     QLabel* statusLabel;
 

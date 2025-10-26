@@ -557,6 +557,8 @@ void MainWindow::createContextMenu()
     toggleOnTopAction = new QAction(trc("MainWindow", "Toggle Always on Top"), this);
     endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
 
+    toggleOnTopAction->setCheckable(true);
+
     connect(hideToTrayAction, &QAction::triggered, this, &MainWindow::hideSelectedToTray);
     connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedWindow);
     connect(bringToFrontAction, &QAction::triggered, this, &MainWindow::bringToFront);
@@ -625,12 +627,7 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
     toggleOnTopAction->setEnabled(true);
     endTaskAction->setEnabled(true);
 
-    if (isOnTop) {
-        toggleOnTopAction->setText(trc("MainWindow", "Remove Always on Top"));
-    }
-    else {
-        toggleOnTopAction->setText(trc("MainWindow", "Set Always on Top"));
-    }
+    toggleOnTopAction->setChecked(isOnTop);
 
     // 显示菜单
     contextMenu->exec(windowsTable->viewport()->mapToGlobal(pos));
@@ -932,7 +929,7 @@ void MainWindow::retranslateUI()
         restoreAction->setText(trc("MainWindow", "Restore from Tray"));
         bringToFrontAction->setText(trc("MainWindow", "Bring to Front"));
         highlightAction->setText(trc("MainWindow", "Highlight Window"));
-        toggleOnTopAction->setText(trc("MainWindow", "Toggle Always on Top"));
+        toggleOnTopAction->setText(trc("MainWindow", "Always on Top"));
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
 
@@ -1176,11 +1173,4 @@ void MainWindow::toggleWindowOnTop()
 
     // 刷新显示以更新状态
     refreshAllLists();
-
-    // 显示操作结果
-    QString message = !currentlyOnTop ?
-        trc("MainWindow", "Window set to always on top") :
-        trc("MainWindow", "Window set to normal (not always on top)");
-
-    QMessageBox::information(this, trc("MainWindow", "Success"), message);
 }
