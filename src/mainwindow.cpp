@@ -89,11 +89,10 @@ void MainWindow::setupUI()
 
     // 创建表格
     windowsTable = new QTableWidget();
-    windowsTable->setColumnCount(4);
+    windowsTable->setColumnCount(3);
     windowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
         trc("MainWindow", "Process"),
-        trc("MainWindow", "Status"),
         trc("MainWindow", "Handle")
         });
     // 设置固定的行号列宽度
@@ -111,17 +110,11 @@ void MainWindow::setupUI()
     // 列宽设置
     windowsTable->setColumnWidth(0, 300); // 标题
     windowsTable->setColumnWidth(1, 150); // 进程名
-    windowsTable->setColumnWidth(2, 100); // 状态
-    windowsTable->setColumnWidth(3, 80);  // 句柄
-
-    // 状态栏
-    statusLabel = new QLabel(trc("MainWindow", "Ready"));
-    statusLabel->setStyleSheet("color: gray; font-style: italic;");
+    windowsTable->setColumnWidth(2, 80);  // 句柄
 
     // 组装布局
     mainLayout->addLayout(headerLayout);
     mainLayout->addWidget(windowsTable);
-    mainLayout->addWidget(statusLabel);
 
     // 创建右键菜单
     createContextMenu();
@@ -264,31 +257,6 @@ void MainWindow::setupConnections()
     connect(alwaysOnTopCheck, &QCheckBox::stateChanged, this, &MainWindow::onAlwaysOnTopChanged);
 }
 
-void MainWindow::refreshHiddenWindowsList()
-{
-    // 获取隐藏窗口列表
-    auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
-    int hiddenCount = 0;
-
-    for (const auto& window : hiddenWindows) {
-        if (!window.first || !IsWindow(window.first)) {
-            continue; // 跳过无效窗口
-        }
-        hiddenCount++;
-    }
-
-    // 更新状态标签
-    if (hiddenCount > 0) {
-        statusLabel->setText(trc("MainWindow", "%1 windows are currently hidden").arg(hiddenCount));
-        statusLabel->setStyleSheet("color: green;");
-    }
-    else {
-        statusLabel->setText(trc("MainWindow", "No windows are currently hidden"));
-        statusLabel->setStyleSheet("color: gray; font-style: italic;");
-    }
-}
-
-
 void MainWindow::restoreSelectedWindow()
 {
     HWND hwnd = getSelectedWindow();
@@ -319,7 +287,6 @@ void MainWindow::restoreSelectedWindow()
 void MainWindow::restoreAllWindows()
 {
     WindowsTrayManager::instance().restoreAllWindows();
-    refreshHiddenWindowsList();
 }
 
 void MainWindow::showAbout()
@@ -354,9 +321,7 @@ void MainWindow::minimizeActiveToTray()
 {
     HWND foregroundWindow = GetForegroundWindow();
     if (foregroundWindow && foregroundWindow != (HWND)winId()) {
-        if (WindowsTrayManager::instance().minimizeWindowToTray(foregroundWindow)) {
-            refreshHiddenWindowsList();
-        }
+        WindowsTrayManager::instance().minimizeWindowToTray(foregroundWindow);
     }
 }
 
@@ -418,13 +383,13 @@ void MainWindow::createTrayIcon()
     // 创建菜单
     trayMenu = new QMenu(this);
 
-    showAction = new QAction(tr("显示主窗口"), this);
+    showAction = new QAction(trc("MainWindow", "Open Main Window"), this);
     connect(showAction, &QAction::triggered, this, &MainWindow::showWindow);
 
-    restoreAllAction = new QAction(tr("恢复所有窗口"), this);
+    restoreAllAction = new QAction(trc("MainWindow", "Restore All Windows"), this);
     connect(restoreAllAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
 
-    quitAction = new QAction(tr("退出"), this);
+    quitAction = new QAction(trc("MainWindow", "Exit"), this);
     connect(quitAction, &QAction::triggered, this, &MainWindow::closeApp);
 
     trayMenu->addAction(showAction);
@@ -616,8 +581,14 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
     }
 
     // 根据窗口状态更新菜单项
-    QTableWidgetItem* statusItem = windowsTable->item(row, 2);
-    bool isHidden = statusItem && statusItem->text() == trc("MainWindow", "Hidden");
+    bool isHidden = false;
+    auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+    for (const auto& hidden : hiddenWindows) {
+        if (hidden.first == hwnd) {
+            isHidden = true;
+            break;
+        }
+    }
     bool isOnTop = isWindowOnTop(hwnd);
 
     hideToTrayAction->setEnabled(!isHidden);
@@ -681,45 +652,17 @@ void MainWindow::refreshWindowsTable()
         // 进程名
         QTableWidgetItem* processItem = new QTableWidgetItem(window.second.processName);
 
-        // 状态
-        QString status;
-        QColor statusColor;
-        bool isOnTop = isWindowOnTop(window.second.hwnd);
-        if (window.second.isHidden) {
-            status = trc("MainWindow", "Hidden");
-            statusColor = Qt::red;
-        }
-        else if (window.second.isVisible) {
-            status = trc("MainWindow", "Visible");
-            statusColor = Qt::green;
-        }
-        else {
-            status = trc("MainWindow", "Minimized");
-            statusColor = Qt::blue;
-        }
-
-        QTableWidgetItem* statusItem = new QTableWidgetItem(status);
-        statusItem->setForeground(statusColor);
-
-        QString tooltip = QString("Title: %1\nProcess: %2\nHandle: %3\nStatus: %4")
-            .arg(window.second.title)
-            .arg(window.second.processName)
-            .arg(QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper())
-            .arg(status);
-        statusItem->setToolTip(tooltip);
-
         // 窗口句柄
         QTableWidgetItem* handleItem = new QTableWidgetItem(
             QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
 
         windowsTable->setItem(row, 0, titleItem);
         windowsTable->setItem(row, 1, processItem);
-        windowsTable->setItem(row, 2, statusItem);
-        windowsTable->setItem(row, 3, handleItem);
+        windowsTable->setItem(row, 2, handleItem);
 
         // 隐藏窗口显示为灰色
         if (window.second.isHidden) {
-            for (int col = 0; col < 4; ++col) {
+            for (int col = 0; col < 3; ++col) {
                 if (auto item = windowsTable->item(row, col)) {
                     item->setForeground(Qt::gray);
                 }
@@ -834,7 +777,6 @@ void MainWindow::endTask()
 void MainWindow::refreshAllLists()
 {
     refreshWindowsTable();
-    refreshHiddenWindowsList();
 }
 
 void MainWindow::loadLanguage(const QString& language)
@@ -858,7 +800,6 @@ void MainWindow::retranslateUI()
     windowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
         trc("MainWindow", "Process"),
-        trc("MainWindow", "Status"),
         trc("MainWindow", "Handle")
         });
 
@@ -866,9 +807,6 @@ void MainWindow::retranslateUI()
     tabWidget->setTabText(0, trc("MainWindow", "Main"));
     tabWidget->setTabText(1, trc("MainWindow", "Settings"));
     tabWidget->setTabText(2, trc("MainWindow", "About"));
-
-    // 更新状态标签
-    statusLabel->setText(trc("MainWindow", "Ready"));
 
     // 更新托盘菜单
     if (trayIcon) {
@@ -932,9 +870,6 @@ void MainWindow::retranslateUI()
         toggleOnTopAction->setText(trc("MainWindow", "Always on Top"));
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
-
-    // 刷新状态标签
-    refreshHiddenWindowsList();
 
     // 刷新表格内容
     refreshWindowsTable();

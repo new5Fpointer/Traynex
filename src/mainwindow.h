@@ -33,7 +33,6 @@ private slots:
     void showWindow();
     void closeApp();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
-    void refreshHiddenWindowsList();
     void restoreSelectedWindow();
     void restoreAllWindows();
     void showAbout();
@@ -94,7 +93,6 @@ private:
 
     // 主页面组件
     QTableWidget* windowsTable;
-    QLabel* statusLabel;
 
     // 右键菜单
     QMenu* contextMenu;
