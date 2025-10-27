@@ -1245,10 +1245,8 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
     QMenu contextMenu(this);
 
     QAction* restoreAction = new QAction(trc("MainWindow", "Restore Window"), this);
-    QAction* bringToFrontAction = new QAction(trc("MainWindow", "Bring to Front"), this);
 
     contextMenu.addAction(restoreAction);
-    contextMenu.addAction(bringToFrontAction);
 
     // 获取选中的窗口
     int row = hiddenWindowsTable->rowAt(pos.y());
@@ -1259,13 +1257,6 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
         if (hwnd && IsWindow(hwnd)) {
             // 连接菜单动作
             connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedHiddenWindow);
-            connect(bringToFrontAction, &QAction::triggered, [this, hwnd]() {
-                if (WindowsTrayManager::instance().restoreWindow(hwnd)) {
-                    ShowWindow(hwnd, SW_RESTORE);
-                    SetForegroundWindow(hwnd);
-                    refreshAllLists();
-                }
-                });
 
             contextMenu.exec(hiddenWindowsTable->viewport()->mapToGlobal(pos));
         }
