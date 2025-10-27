@@ -147,23 +147,11 @@ void MainWindow::setupUI()
     hiddenWindowsTable->setColumnWidth(0, 300); // 标题
     hiddenWindowsTable->setColumnWidth(1, 150); // 进程名
     hiddenWindowsTable->setColumnWidth(2, 80);  // 句柄
-
-    // 添加操作按钮
-    QHBoxLayout* hiddenButtonsLayout = new QHBoxLayout();
-    QPushButton* restoreSelectedButton = new QPushButton(trc("MainWindow", "Restore Selected"));
-    QPushButton* restoreAllHiddenButton = new QPushButton(trc("MainWindow", "Restore All"));
-
-    hiddenButtonsLayout->addWidget(restoreSelectedButton);
-    hiddenButtonsLayout->addWidget(restoreAllHiddenButton);
-    hiddenButtonsLayout->addStretch();
-
+   
     // 组装布局
-    hiddenLayout->addLayout(hiddenButtonsLayout);
     hiddenLayout->addWidget(hiddenWindowsTable);
 
     // 连接信号
-    connect(restoreSelectedButton, &QPushButton::clicked, this, &MainWindow::restoreSelectedHiddenWindow);
-    connect(restoreAllHiddenButton, &QPushButton::clicked, this, &MainWindow::restoreAllWindows);
     connect(hiddenWindowsTable, &QTableWidget::customContextMenuRequested,
         this, &MainWindow::onHiddenTableContextMenu);
 
