@@ -50,6 +50,9 @@ private slots:
     void onAlwaysOnTopChanged();
     void highlightWindow();
     void toggleWindowOnTop();
+    void refreshHiddenWindowsTable();
+    void restoreSelectedHiddenWindow();
+    void onHiddenTableContextMenu(const QPoint& pos);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -102,6 +105,9 @@ private:
     QAction* highlightAction;
     QAction* toggleOnTopAction;
     QAction* endTaskAction;
+
+    // 隐藏窗口页面组件
+    QTableWidget* hiddenWindowsTable;
 
     // 设置页面组件
     QCheckBox* startWithSystemCheck;
