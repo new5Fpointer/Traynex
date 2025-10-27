@@ -100,7 +100,6 @@ private:
     // 右键菜单
     QMenu* contextMenu;
     QAction* hideToTrayAction;
-    QAction* restoreAction;
     QAction* bringToFrontAction;
     QAction* highlightAction;
     QAction* toggleOnTopAction;

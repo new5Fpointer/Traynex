@@ -561,7 +561,6 @@ void MainWindow::createContextMenu()
     contextMenu = new QMenu(this);
 
     hideToTrayAction = new QAction(trc("MainWindow", "Hide to Tray"), this);
-    restoreAction = new QAction(trc("MainWindow", "Restore from Tray"), this);
     bringToFrontAction = new QAction(trc("MainWindow", "Bring to Front"), this);
     highlightAction = new QAction(trc("MainWindow", "Highlight Window"), this);
     toggleOnTopAction = new QAction(trc("MainWindow", "Toggle Always on Top"), this);
@@ -570,14 +569,12 @@ void MainWindow::createContextMenu()
     toggleOnTopAction->setCheckable(true);
 
     connect(hideToTrayAction, &QAction::triggered, this, &MainWindow::hideSelectedToTray);
-    connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedWindow);
     connect(bringToFrontAction, &QAction::triggered, this, &MainWindow::bringToFront);
     connect(highlightAction, &QAction::triggered, this, &MainWindow::highlightWindow);
     connect(toggleOnTopAction, &QAction::triggered, this, &MainWindow::toggleWindowOnTop);
     connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
 
     contextMenu->addAction(hideToTrayAction);
-    contextMenu->addAction(restoreAction);
     contextMenu->addSeparator();
     contextMenu->addAction(bringToFrontAction);
     contextMenu->addAction(highlightAction);
@@ -637,7 +634,6 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
     bool isOnTop = isWindowOnTop(hwnd);
 
     hideToTrayAction->setEnabled(!isHidden);
-    restoreAction->setEnabled(isHidden);
     bringToFrontAction->setEnabled(true);
     highlightAction->setEnabled(true);
     toggleOnTopAction->setEnabled(true);
@@ -916,7 +912,6 @@ void MainWindow::retranslateUI()
     // 更新右键菜单
     if (contextMenu) {
         hideToTrayAction->setText(trc("MainWindow", "Hide to Tray"));
-        restoreAction->setText(trc("MainWindow", "Restore from Tray"));
         bringToFrontAction->setText(trc("MainWindow", "Bring to Front"));
         highlightAction->setText(trc("MainWindow", "Highlight Window"));
         toggleOnTopAction->setText(trc("MainWindow", "Always on Top"));
