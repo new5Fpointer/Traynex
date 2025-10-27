@@ -320,6 +320,7 @@ void MainWindow::restoreSelectedWindow()
 void MainWindow::restoreAllWindows()
 {
     WindowsTrayManager::instance().restoreAllWindows();
+    refreshAllLists();
 }
 
 void MainWindow::showAbout()
@@ -1233,20 +1234,30 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
     QMenu contextMenu(this);
 
     QAction* restoreAction = new QAction(trc("MainWindow", "Restore Window"), this);
+    QAction* restoreAllAction = new QAction(trc("MainWindow", "Restore All Windows"), this);
 
     contextMenu.addAction(restoreAction);
+    contextMenu.addAction(restoreAllAction);
 
     // 获取选中的窗口
     int row = hiddenWindowsTable->rowAt(pos.y());
+    HWND selectedHwnd = nullptr;
+
     if (row >= 0) {
         hiddenWindowsTable->setCurrentCell(row, 0);
-        HWND hwnd = reinterpret_cast<HWND>(hiddenWindowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
-
-        if (hwnd && IsWindow(hwnd)) {
-            // 连接菜单动作
-            connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedHiddenWindow);
-
-            contextMenu.exec(hiddenWindowsTable->viewport()->mapToGlobal(pos));
-        }
+        selectedHwnd = reinterpret_cast<HWND>(hiddenWindowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
     }
+
+    // 恢复选中窗口的功能
+    if (selectedHwnd && IsWindow(selectedHwnd)) {
+        connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedHiddenWindow);
+    }
+    else {
+        restoreAction->setEnabled(false);  // 如果没有选中窗口，禁用恢复选中功能
+    }
+
+    // 恢复所有窗口的功能
+    connect(restoreAllAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
+
+    contextMenu.exec(hiddenWindowsTable->viewport()->mapToGlobal(pos));
 }
