@@ -552,7 +552,7 @@ void MainWindow::createContextMenu()
     hideToTrayAction = new QAction(trc("MainWindow", "Hide to Tray"), this);
     bringToFrontAction = new QAction(trc("MainWindow", "Bring to Front"), this);
     highlightAction = new QAction(trc("MainWindow", "Highlight Window"), this);
-    toggleOnTopAction = new QAction(trc("MainWindow", "Toggle Always on Top"), this);
+    toggleOnTopAction = new QAction(trc("MainWindow", "Always on Top"), this);
     endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
 
     toggleOnTopAction->setCheckable(true);
