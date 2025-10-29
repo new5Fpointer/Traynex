@@ -1237,7 +1237,12 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
     QAction* restoreAllAction = new QAction(trc("MainWindow", "Restore All Windows"), this);
 
     contextMenu.addAction(restoreAction);
+    contextMenu.addSeparator();
     contextMenu.addAction(restoreAllAction);
+
+    // 获取隐藏窗口列表
+    auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+    int hiddenCount = hiddenWindows.size();
 
     // 获取选中的窗口
     int row = hiddenWindowsTable->rowAt(pos.y());
@@ -1248,7 +1253,7 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
         selectedHwnd = reinterpret_cast<HWND>(hiddenWindowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
     }
 
-    // 恢复选中窗口的功能
+    // 设置恢复选中窗口的功能
     if (selectedHwnd && IsWindow(selectedHwnd)) {
         connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedHiddenWindow);
     }
@@ -1256,8 +1261,13 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
         restoreAction->setEnabled(false);  // 如果没有选中窗口，禁用恢复选中功能
     }
 
-    // 恢复所有窗口的功能
-    connect(restoreAllAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
+    // 设置恢复所有窗口的功能
+    if (hiddenCount > 0) {
+        connect(restoreAllAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
+    }
+    else {
+        restoreAllAction->setEnabled(false);  // 如果没有隐藏窗口，禁用恢复所有功能
+    }
 
     contextMenu.exec(hiddenWindowsTable->viewport()->mapToGlobal(pos));
 }
