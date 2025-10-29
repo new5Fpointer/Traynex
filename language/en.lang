@@ -4,12 +4,11 @@
 Main=Main
 Settings=Settings
 About=About
-Window Tray Manager=Window Tray Manager
+Traynex=Traynex
 Version=Version
 Description=Description
 Usage=Usage
-Thank you for using our application!=Thank you for using our application!
-My Application - Window Manager=My Application - Window Manager
+Thank you for using Traynex!=Thank you for using Traynex!
 
 ; === Window List/Table Related Translations ===
 Window Title=Window Title
@@ -31,6 +30,7 @@ Restore=Restore
 Restore Selected=Restore Selected
 Restore All=Restore All
 Restore All Windows=Restore All Windows
+Restore Window=Restore Window
 Please select a window to restore=Please select a window to restore
 Would restore: %1=Would restore: %1
 
@@ -39,11 +39,13 @@ Quick Actions=Quick Actions
 Minimize Current Active Window=Minimize Current Active Window
 Open Main Window=Open Main Window
 Exit=Exit
-Window Tray Manager - Right click for menu=Window Tray Manager - Right click for menu
+Traynex - Right click for menu=Traynex - Right click for menu
 Hide to Tray=Hide to Tray
 Restore from Tray=Restore from Tray
 Bring to Front=Bring to Front
 End Task=End Task
+Highlight Window=Highlight Window
+Toggle Always on Top=Toggle Always on Top
 
 ; === Hotkeys/Shortcut Information ===
 Hotkey=Hotkey
@@ -56,6 +58,8 @@ Hotkey support (Win+Shift+Z)=Hotkey support (Win+Shift+Z)
 Application Settings=Application Settings
 General Settings=General Settings
 Start with Windows=Start with Windows
+Always on Top=Always on Top
+Keep the main window always on top of other windows=Keep the main window always on top of other windows
 Auto Refresh Settings=Auto Refresh Settings
 Enable auto refresh=Enable auto refresh
 Refresh interval:=Refresh interval:
@@ -64,6 +68,7 @@ ms=ms
 Window Settings=Window Settings
 Maximum hidden windows:=Maximum hidden windows:
 windows=windows
+Hidden Windows=Hidden Windows
 Language:=Language:
 Save Settings=Save Settings
 
@@ -76,6 +81,8 @@ Failed to initialize Windows tray manager=Failed to initialize Windows tray mana
 The selected window is no longer available=The selected window is no longer available
 Failed to restore the window=Failed to restore the window
 Please select a window to hide=Please select a window to hide
+Please select a window to highlight=Please select a window to highlight
+Please select a window to toggle always on top=Please select a window to toggle always on top
 Window hidden to tray successfully=Window hidden to tray successfully
 Failed to hide window to tray=Failed to hide window to tray
 Settings saved successfully!=Settings saved successfully!

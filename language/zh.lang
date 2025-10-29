@@ -4,12 +4,11 @@
 Main=主页
 Settings=设置
 About=关于
-Window Tray Manager=窗口托盘管理器
+Traynex=Traynex
 Version=版本
 Description=描述
 Usage=用法
-Thank you for using our application!=感谢使用您的应用！
-My Application - Window Manager=我的应用 - 窗口管理器
+Thank you for using Traynex!=感谢使用 Traynex！
 
 ; === 窗口列表/表格相关翻译 ===
 Window Title=窗口标题
@@ -31,6 +30,7 @@ Restore=恢复
 Restore Selected=恢复选中
 Restore All=恢复全部
 Restore All Windows=恢复所有窗口
+Restore Window=恢复窗口
 Please select a window to restore=请选择要恢复的窗口
 Would restore: %1=将要恢复: %1
 
@@ -39,11 +39,13 @@ Quick Actions=快速操作
 Minimize Current Active Window=最小化当前活动窗口
 Open Main Window=打开主窗口
 Exit=退出
-Window Tray Manager - Right click for menu=窗口托盘管理器 - 右键点击显示菜单
+Traynex - Right click for menu=Traynex - 右键点击显示菜单
 Hide to Tray=隐藏到托盘
 Restore from Tray=从托盘恢复
 Bring to Front=置顶
 End Task=结束任务
+Highlight Window=高亮窗口
+Toggle Always on Top=切换始终置顶状态
 
 ; === 快捷键/热键信息 ===
 Hotkey=热键
@@ -56,6 +58,7 @@ Hotkey support (Win+Shift+Z)=热键支持 (Win+Shift+Z)
 Application Settings=应用设置
 General Settings=常规设置
 Start with Windows=开机启动
+Always on Top=保持置顶
 Auto Refresh Settings=自动刷新设置
 Enable auto refresh=启用自动刷新
 Refresh interval:=刷新间隔:
@@ -64,8 +67,10 @@ ms=毫秒
 Window Settings=窗口设置
 Maximum hidden windows:=最大隐藏窗口数:
 windows=个窗口
+Hidden Windows=隐藏窗口
 Language:=语言:
 Save Settings=保存设置
+Keep the main window always on top of other windows=保持主窗口始终位于其他窗口的顶部
 
 ; === 错误/警告/成功/提示消息 ===
 Error=错误
@@ -76,6 +81,8 @@ Failed to initialize Windows tray manager=初始化 Windows 托盘管理器失�
 The selected window is no longer available=选定的窗口不再可用
 Failed to restore the window=恢复窗口失败
 Please select a window to hide=请选择要隐藏的窗口
+Please select a window to highlight=请选择要高亮显示的窗口
+Please select a window to toggle always on top=请选择要切换置顶状态的窗口
 Window hidden to tray successfully=窗口已成功隐藏到托盘
 Failed to hide window to tray=隐藏窗口到托盘失败
 Settings saved successfully!=设置保存成功！

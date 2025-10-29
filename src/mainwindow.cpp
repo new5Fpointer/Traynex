@@ -241,12 +241,12 @@ void MainWindow::setupUI()
         "<hr>"
         "<p>%6</p>"
     ).arg(
-        trc("MainWindow", "Window Tray Manager"),
+        trc("MainWindow", "Traynex"),
         trc("MainWindow", "Version"),
         trc("MainWindow", "Description"),
         trc("MainWindow", "Hotkey"),
         trc("MainWindow", "Usage"),
-        trc("MainWindow", "Thank you for using our application!")
+        trc("MainWindow", "Thank you for using Traynex!")
     );
 
     aboutLabel->setText(aboutText);
@@ -335,12 +335,12 @@ void MainWindow::showAbout()
             "<hr>"
             "<p>%6</p>"
         ).arg(
-            trc("MainWindow", "Window Tray Manager"),
+            trc("MainWindow", "Traynex"),
             trc("MainWindow", "Version"),
             trc("MainWindow", "Description"),
             trc("MainWindow", "Hotkey"),
             trc("MainWindow", "Usage"),
-            trc("MainWindow", "Thank you for using our application!")
+            trc("MainWindow", "Thank you for using Traynex!")
         );
         aboutLabel->setText(aboutText);
     }
@@ -825,7 +825,7 @@ void MainWindow::loadLanguage(const QString& language)
 void MainWindow::retranslateUI()
 {
     // 更新窗口标题
-    setWindowTitle(trc("MainWindow", "My Application - Window Manager"));
+    setWindowTitle(trc("MainWindow", "Traynex"));
 
     // 更新表格标题
     windowsTable->setHorizontalHeaderLabels({
@@ -850,7 +850,7 @@ void MainWindow::retranslateUI()
         showAction->setText(trc("MainWindow", "Open Main Window"));
         restoreAllAction->setText(trc("MainWindow", "Restore All Windows"));
         quitAction->setText(trc("MainWindow", "Exit"));
-        trayIcon->setToolTip(trc("MainWindow", "Window Tray Manager - Right click for menu"));
+        trayIcon->setToolTip(trc("MainWindow", "Traynex - Right click for menu"));
     }
 
     // 更新设置页面
