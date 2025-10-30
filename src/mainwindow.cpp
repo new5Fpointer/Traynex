@@ -40,6 +40,8 @@ MainWindow::MainWindow(QWidget* parent)
 
     connect(&WindowsTrayManager::instance(), &WindowsTrayManager::trayWindowsChanged,
         this, &MainWindow::updateTrayMenu);
+    connect(&WindowsTrayManager::instance(), &WindowsTrayManager::trayWindowsChanged,
+        this, &MainWindow::refreshAllLists);
 
     // 创建定时器
     refreshTimer = new QTimer(this);
