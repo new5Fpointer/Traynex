@@ -189,7 +189,7 @@ bool WindowsTrayManager::minimizeWindowToTray(HWND hwnd)
         L"WorkerW",
         L"Shell_TrayWnd",
         L"Progman",
-        L"WindowsTrayManagerClass"  // 我们自己的窗口类
+        L"Traynex"
     };
 
     for (const wchar_t* restricted : restrictedWindows) {
@@ -241,6 +241,8 @@ bool WindowsTrayManager::minimizeWindowToTray(HWND hwnd)
     // 保存状态
     saveHiddenWindows();
 
+    emit trayWindowsChanged();
+
     return true;
 }
 
@@ -255,6 +257,8 @@ void WindowsTrayManager::restoreAllWindows()
 
     // 清理保存文件
     DeleteFile(L"traymond_save.dat");
+
+    emit trayWindowsChanged();
 }
 
 void WindowsTrayManager::showWindowFromTray(UINT iconId)
@@ -404,6 +408,8 @@ bool WindowsTrayManager::restoreWindow(HWND hwnd)
 
     // 更新保存文件
     saveHiddenWindows();
+
+    emit trayWindowsChanged();
 
     return true;
 }

@@ -1,11 +1,13 @@
 #pragma once
 
+#include <QObject>
 #include <Windows.h>
 #include <string>
 #include <vector>
 
-class WindowsTrayManager
+class WindowsTrayManager : public QObject
 {
+    Q_OBJECT
 public:
     static WindowsTrayManager& instance();
 
@@ -19,6 +21,9 @@ public:
 
     // 获取隐藏窗口信息
     std::vector<std::pair<HWND, std::wstring>> getHiddenWindows() const;
+
+signals:
+    void trayWindowsChanged();
 
 private:
     WindowsTrayManager();

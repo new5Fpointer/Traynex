@@ -53,6 +53,7 @@ private slots:
     void refreshHiddenWindowsTable();
     void restoreSelectedHiddenWindow();
     void onHiddenTableContextMenu(const QPoint& pos);
+    void updateTrayMenu();
 
 protected:
     void closeEvent(QCloseEvent* event) override;

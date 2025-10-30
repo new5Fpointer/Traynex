@@ -38,6 +38,9 @@ MainWindow::MainWindow(QWidget* parent)
     setupUI();
     setupConnections();
 
+    connect(&WindowsTrayManager::instance(), &WindowsTrayManager::trayWindowsChanged,
+        this, &MainWindow::updateTrayMenu);
+
     // 创建定时器
     refreshTimer = new QTimer(this);
     connect(refreshTimer, &QTimer::timeout, this, &MainWindow::refreshWindowsTable);
@@ -306,10 +309,9 @@ void MainWindow::restoreSelectedWindow()
         return;
     }
 
-    // 调用 WindowsTrayManager 恢复单个窗口
     if (WindowsTrayManager::instance().restoreWindow(hwnd)) {
-        // 成功恢复，刷新显示
         refreshAllLists();
+        updateTrayMenu();
     }
     else {
         QMessageBox::warning(this, trc("MainWindow", "Error"),
@@ -321,6 +323,7 @@ void MainWindow::restoreAllWindows()
 {
     WindowsTrayManager::instance().restoreAllWindows();
     refreshAllLists();
+    updateTrayMenu();
 }
 
 void MainWindow::showAbout()
@@ -355,7 +358,10 @@ void MainWindow::minimizeActiveToTray()
 {
     HWND foregroundWindow = GetForegroundWindow();
     if (foregroundWindow && foregroundWindow != (HWND)winId()) {
-        WindowsTrayManager::instance().minimizeWindowToTray(foregroundWindow);
+        if (WindowsTrayManager::instance().minimizeWindowToTray(foregroundWindow)) {
+            refreshAllLists();
+            updateTrayMenu();
+        }
     }
 }
 
@@ -435,7 +441,7 @@ void MainWindow::createTrayIcon()
     // 创建托盘图标
     trayIcon = new QSystemTrayIcon(this);
 
-    // 设置图标 - 使用简单的资源路径
+    // 设置图标
     QIcon icon(":/icon/icon.png");
     if (icon.isNull()) {
         qWarning() << "Failed to load tray icon from resource, using default";
@@ -448,6 +454,8 @@ void MainWindow::createTrayIcon()
 
     // 连接信号
     connect(trayIcon, &QSystemTrayIcon::activated, this, &MainWindow::onTrayActivated);
+
+    updateTrayMenu();
 
     // 显示托盘图标
     trayIcon->show();
@@ -535,7 +543,7 @@ void MainWindow::hideSelectedToTray()
     if (WindowsTrayManager::instance().minimizeWindowToTray(hwnd)) {
         // 成功隐藏，刷新显示
         refreshAllLists();
-
+        updateTrayMenu();
         QMessageBox::information(this, trc("MainWindow", "Success"),
             trc("MainWindow", "Window hidden to tray successfully"));
     }
@@ -800,6 +808,7 @@ void MainWindow::endTask()
             TerminateProcess(process, 0);
             CloseHandle(process);
             refreshAllLists();
+            updateTrayMenu();
         }
     }
 }
@@ -1222,6 +1231,7 @@ void MainWindow::restoreSelectedHiddenWindow()
 
     if (WindowsTrayManager::instance().restoreWindow(hwnd)) {
         refreshAllLists();
+        updateTrayMenu();
     }
     else {
         QMessageBox::warning(this, trc("MainWindow", "Error"),
@@ -1270,4 +1280,16 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
     }
 
     contextMenu.exec(hiddenWindowsTable->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::updateTrayMenu()
+{
+    // 获取当前隐藏窗口数量
+    auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+    int hiddenCount = hiddenWindows.size();
+
+    // 根据隐藏窗口数量启用/禁用恢复所有窗口菜单项
+
+    qDebug() << "hidenconunt:" << (hiddenCount > 0);
+    restoreAllAction->setEnabled(hiddenCount > 0);
 }
