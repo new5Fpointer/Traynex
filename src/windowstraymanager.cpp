@@ -19,7 +19,6 @@ WindowsTrayManager& WindowsTrayManager::instance()
 
 WindowsTrayManager::WindowsTrayManager()
     : m_mainWindow(nullptr)
-    , m_trayMenu(nullptr)
     , m_initialized(false)
     , m_saveFile(INVALID_HANDLE_VALUE)
     , m_mutex(nullptr)
@@ -74,9 +73,6 @@ bool WindowsTrayManager::initialize()
         // 热键注册失败不是致命错误，继续初始化
     }
 
-    // 创建托盘菜单
-    createTrayMenu();
-
     // 恢复之前隐藏的窗口
     restoreHiddenWindows();
 
@@ -98,11 +94,6 @@ void WindowsTrayManager::shutdown()
         UnregisterHotKey(m_mainWindow, 1);
     }
 
-    // 清理资源
-    if (m_trayMenu) {
-        DestroyMenu(m_trayMenu);
-    }
-
     if (m_mainWindow) {
         DestroyWindow(m_mainWindow);
     }
@@ -117,38 +108,6 @@ void WindowsTrayManager::shutdown()
     }
 
     m_initialized = false;
-}
-
-void WindowsTrayManager::createTrayMenu()
-{
-    m_trayMenu = CreatePopupMenu();
-
-    MENUITEMINFOW menuItem = {};
-    menuItem.cbSize = sizeof(MENUITEMINFOW);
-
-    // 恢复所有窗口菜单项
-    menuItem.fMask = MIIM_STRING | MIIM_ID;
-    menuItem.wID = RESTORE_ALL_ID;
-
-    wchar_t restoreText[] = L"Restore All Windows";
-    menuItem.dwTypeData = restoreText;
-    menuItem.cch = wcslen(restoreText);
-    InsertMenuItem(m_trayMenu, 0, TRUE, &menuItem);
-
-    // 分隔符
-    menuItem.fMask = MIIM_TYPE;
-    menuItem.fType = MFT_SEPARATOR;
-    InsertMenuItem(m_trayMenu, 1, TRUE, &menuItem);
-
-    // 退出菜单项
-    menuItem.fMask = MIIM_STRING | MIIM_ID;
-    menuItem.fType = MFT_STRING;
-    menuItem.wID = EXIT_ID;
-
-    wchar_t exitText[] = L"Exit";
-    menuItem.dwTypeData = exitText;
-    menuItem.cch = wcslen(exitText);
-    InsertMenuItem(m_trayMenu, 2, TRUE, &menuItem);
 }
 
 std::vector<std::pair<HWND, std::wstring>> WindowsTrayManager::getHiddenWindows() const
@@ -207,31 +166,8 @@ bool WindowsTrayManager::minimizeWindowToTray(HWND hwnd)
         icon = LoadIcon(NULL, IDI_APPLICATION);
     }
 
-    // 创建托盘图标
-    NOTIFYICONDATA nid = {};
-    nid.cbSize = sizeof(NOTIFYICONDATA);
-    nid.hWnd = m_mainWindow;
-    nid.uID = 1000 + (UINT)m_hiddenWindows.size() + 1;
-    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_SHOWTIP;
-    nid.uCallbackMessage = WM_TRAYICON;
-    nid.hIcon = icon;
-
-    wchar_t windowTitle[128];
-    GetWindowText(hwnd, windowTitle, 128);
-    wcscpy_s(nid.szTip, windowTitle);
-
-    bool success = Shell_NotifyIcon(NIM_ADD, &nid);
-    if (!success) {
-        return false;
-    }
-
-    // 设置版本
-    nid.uVersion = NOTIFYICON_VERSION_4;
-    Shell_NotifyIcon(NIM_SETVERSION, &nid);
-
     // 保存隐藏窗口信息
     HiddenWindow hiddenWindow;
-    hiddenWindow.iconData = nid;
     hiddenWindow.hwnd = hwnd;
     m_hiddenWindows.push_back(hiddenWindow);
 
@@ -251,7 +187,6 @@ void WindowsTrayManager::restoreAllWindows()
     for (auto& hiddenWindow : m_hiddenWindows) {
         ShowWindow(hiddenWindow.hwnd, SW_SHOW);
         SetForegroundWindow(hiddenWindow.hwnd);
-        Shell_NotifyIcon(NIM_DELETE, &hiddenWindow.iconData);
     }
     m_hiddenWindows.clear();
 
@@ -259,23 +194,6 @@ void WindowsTrayManager::restoreAllWindows()
     DeleteFile(L"traymond_save.dat");
 
     emit trayWindowsChanged();
-}
-
-void WindowsTrayManager::showWindowFromTray(UINT iconId)
-{
-    auto it = std::find_if(m_hiddenWindows.begin(), m_hiddenWindows.end(),
-        [iconId](const HiddenWindow& hw) {
-            return hw.iconData.uID == iconId;
-        });
-
-    if (it != m_hiddenWindows.end()) {
-        ShowWindow(it->hwnd, SW_SHOW);
-        SetForegroundWindow(it->hwnd);
-        Shell_NotifyIcon(NIM_DELETE, &it->iconData);
-        m_hiddenWindows.erase(it);
-
-        saveHiddenWindows();
-    }
 }
 
 void WindowsTrayManager::saveHiddenWindows()
@@ -344,29 +262,7 @@ LRESULT CALLBACK WindowsTrayManager::windowProc(HWND hwnd, UINT uMsg, WPARAM wPa
         }
         break;
 
-    case WM_TRAYICON:// 托盘图标双击恢复功能
-        if (lParam == WM_LBUTTONDBLCLK) {
-            manager->showWindowFromTray(static_cast<UINT>(wParam));
-        }
-        else if (lParam == WM_RBUTTONUP) {
-            // 显示上下文菜单
-            POINT pt;
-            GetCursorPos(&pt);
-            SetForegroundWindow(hwnd); // 确保菜单能正确消失
-            TrackPopupMenu(manager->m_trayMenu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, NULL);
-            PostMessage(hwnd, WM_NULL, 0, 0);
-        }
-        break;
-
     case WM_COMMAND:
-        switch (LOWORD(wParam)) {
-        case RESTORE_ALL_ID:
-            manager->restoreAllWindows();
-            break;
-        case EXIT_ID:
-            PostQuitMessage(0);
-            break;
-        }
         break;
 
     case WM_DESTROY:
@@ -399,9 +295,6 @@ bool WindowsTrayManager::restoreWindow(HWND hwnd)
     // 恢复窗口显示
     ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
-
-    // 移除托盘图标
-    Shell_NotifyIcon(NIM_DELETE, &it->iconData);
 
     // 从列表中移除
     m_hiddenWindows.erase(it);

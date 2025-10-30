@@ -1289,7 +1289,5 @@ void MainWindow::updateTrayMenu()
     int hiddenCount = hiddenWindows.size();
 
     // 根据隐藏窗口数量启用/禁用恢复所有窗口菜单项
-
-    qDebug() << "hidenconunt:" << (hiddenCount > 0);
     restoreAllAction->setEnabled(hiddenCount > 0);
 }
