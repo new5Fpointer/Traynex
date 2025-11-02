@@ -140,6 +140,10 @@ void MainWindow::setupUI()
         trc("MainWindow", "Process"),
         trc("MainWindow", "Handle")
         });
+    // 设置固定的行号列宽度
+    hiddenWindowsTable->verticalHeader()->setDefaultSectionSize(30); // 行高
+    hiddenWindowsTable->verticalHeader()->setMinimumWidth(20);       // 最小宽度
+    hiddenWindowsTable->verticalHeader()->setMaximumWidth(20);       // 最大宽度
 
     // 表格属性
     hiddenWindowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -1243,18 +1247,21 @@ void MainWindow::restoreSelectedHiddenWindow()
 
 void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
 {
-    QMenu contextMenu(this);
+    // 使用成员变量，避免局部变量
+    if (!hiddenTableContextMenu) {
+        hiddenTableContextMenu = new QMenu(this);
 
-    QAction* restoreAction = new QAction(trc("MainWindow", "Restore Window"), this);
-    QAction* restoreAllAction = new QAction(trc("MainWindow", "Restore All Windows"), this);
+        restoreHiddenAction = new QAction(trc("MainWindow", "Restore Window"), this);
+        restoreAllHiddenAction = new QAction(trc("MainWindow", "Restore All Windows"), this);
 
-    contextMenu.addAction(restoreAction);
-    contextMenu.addSeparator();
-    contextMenu.addAction(restoreAllAction);
+        hiddenTableContextMenu->addAction(restoreHiddenAction);
+        hiddenTableContextMenu->addSeparator();
+        hiddenTableContextMenu->addAction(restoreAllHiddenAction);
 
-    // 获取隐藏窗口列表
-    auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
-    int hiddenCount = hiddenWindows.size();
+        // 一次性连接信号
+        connect(restoreHiddenAction, &QAction::triggered, this, &MainWindow::restoreSelectedHiddenWindow);
+        connect(restoreAllHiddenAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
+    }
 
     // 获取选中的窗口
     int row = hiddenWindowsTable->rowAt(pos.y());
@@ -1265,23 +1272,13 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
         selectedHwnd = reinterpret_cast<HWND>(hiddenWindowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
     }
 
-    // 设置恢复选中窗口的功能
-    if (selectedHwnd && IsWindow(selectedHwnd)) {
-        connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreSelectedHiddenWindow);
-    }
-    else {
-        restoreAction->setEnabled(false);  // 如果没有选中窗口，禁用恢复选中功能
-    }
+    // 根据状态更新菜单项
+    restoreHiddenAction->setEnabled(selectedHwnd && IsWindow(selectedHwnd));
 
-    // 设置恢复所有窗口的功能
-    if (hiddenCount > 0) {
-        connect(restoreAllAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
-    }
-    else {
-        restoreAllAction->setEnabled(false);  // 如果没有隐藏窗口，禁用恢复所有功能
-    }
+    auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+    restoreAllHiddenAction->setEnabled(!hiddenWindows.empty());
 
-    contextMenu.exec(hiddenWindowsTable->viewport()->mapToGlobal(pos));
+    hiddenTableContextMenu->exec(hiddenWindowsTable->viewport()->mapToGlobal(pos));
 }
 
 void MainWindow::updateTrayMenu()

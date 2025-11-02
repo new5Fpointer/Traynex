@@ -98,7 +98,7 @@ private:
     // 主页面组件
     QTableWidget* windowsTable;
 
-    // 右键菜单
+    // 主页面右键菜单
     QMenu* contextMenu;
     QAction* hideToTrayAction;
     QAction* bringToFrontAction;
@@ -108,6 +108,11 @@ private:
 
     // 隐藏窗口页面组件
     QTableWidget* hiddenWindowsTable;
+
+	// 隐藏窗口页面右键菜单
+    QMenu* hiddenTableContextMenu = nullptr;
+    QAction* restoreHiddenAction = nullptr;
+    QAction* restoreAllHiddenAction = nullptr;
 
     // 设置页面组件
     QCheckBox* startWithSystemCheck;
