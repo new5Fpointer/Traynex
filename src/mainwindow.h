@@ -17,6 +17,7 @@
 #include <QSpinBox>
 #include <QComboBox>
 #include <QTimer>
+#include <QMap>
 
 class MainWindow : public QMainWindow
 {
@@ -54,6 +55,8 @@ private slots:
     void restoreSelectedHiddenWindow();
     void onHiddenTableContextMenu(const QPoint& pos);
     void updateTrayMenu();
+    void hideToAppTray();
+    void restoreWindowFromAppTray();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -78,6 +81,10 @@ private:
     bool isWindowOnTop(HWND hwnd);
     void setWindowOnTop(HWND hwnd, bool onTop);
 
+    void addWindowToTrayMenu(HWND hwnd, const QString& title);
+    void removeWindowFromTrayMenu(HWND hwnd);
+    void updateTrayMenuLayout();
+
     struct WindowInfo {
         QString title;
         QString processName;
@@ -101,6 +108,7 @@ private:
     // 主页面右键菜单
     QMenu* contextMenu;
     QAction* hideToTrayAction;
+    QAction* hideToAppTrayAction;
     QAction* bringToFrontAction;
     QAction* highlightAction;
     QAction* toggleOnTopAction;
@@ -110,9 +118,9 @@ private:
     QTableWidget* hiddenWindowsTable;
 
 	// 隐藏窗口页面右键菜单
-    QMenu* hiddenTableContextMenu = nullptr;
-    QAction* restoreHiddenAction = nullptr;
-    QAction* restoreAllHiddenAction = nullptr;
+    QMenu* hiddenTableContextMenu;
+    QAction* restoreHiddenAction;
+    QAction* restoreAllHiddenAction;
 
     // 设置页面组件
     QCheckBox* startWithSystemCheck;
@@ -129,6 +137,7 @@ private:
     QSystemTrayIcon* trayIcon;
     QMenu* trayMenu;
     QAction* showAction;
+    QMap<HWND, QAction*> m_appTrayWindows;
     QAction* restoreAllAction;
     QAction* quitAction;
 
