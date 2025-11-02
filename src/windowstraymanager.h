@@ -30,11 +30,13 @@ private:
 
     void saveHiddenWindows();
     void restoreHiddenWindows();
+    void showWindowFromTray(UINT iconId);
     std::wstring getWindowTitle(HWND hwnd) const;
 
     static LRESULT CALLBACK windowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     struct HiddenWindow {
+        NOTIFYICONDATA iconData;
         HWND hwnd;
     };
 
@@ -46,6 +48,7 @@ private:
 
     static WindowsTrayManager* s_instance;
 
+    static constexpr UINT WM_TRAYICON = WM_USER + 101;
     static constexpr int MAX_WINDOWS = 50;
 
     bool m_hotkeyEnabled = true;

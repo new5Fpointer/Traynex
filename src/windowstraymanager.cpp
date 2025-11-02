@@ -166,8 +166,31 @@ bool WindowsTrayManager::minimizeWindowToTray(HWND hwnd)
         icon = LoadIcon(NULL, IDI_APPLICATION);
     }
 
+    // 创建托盘图标
+    NOTIFYICONDATA nid = {};
+    nid.cbSize = sizeof(NOTIFYICONDATA);
+    nid.hWnd = m_mainWindow;
+    nid.uID = 1000 + (UINT)m_hiddenWindows.size() + 1;
+    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_SHOWTIP;
+    nid.uCallbackMessage = WM_TRAYICON;
+    nid.hIcon = icon;
+
+    wchar_t windowTitle[128];
+    GetWindowText(hwnd, windowTitle, 128);
+    wcscpy_s(nid.szTip, windowTitle);
+
+    bool success = Shell_NotifyIcon(NIM_ADD, &nid);
+    if (!success) {
+        return false;
+    }
+
+    // 设置版本
+    nid.uVersion = NOTIFYICON_VERSION_4;
+    Shell_NotifyIcon(NIM_SETVERSION, &nid);
+
     // 保存隐藏窗口信息
     HiddenWindow hiddenWindow;
+    hiddenWindow.iconData = nid;
     hiddenWindow.hwnd = hwnd;
     m_hiddenWindows.push_back(hiddenWindow);
 
@@ -187,6 +210,7 @@ void WindowsTrayManager::restoreAllWindows()
     for (auto& hiddenWindow : m_hiddenWindows) {
         ShowWindow(hiddenWindow.hwnd, SW_SHOW);
         SetForegroundWindow(hiddenWindow.hwnd);
+        Shell_NotifyIcon(NIM_DELETE, &hiddenWindow.iconData);
     }
     m_hiddenWindows.clear();
 
@@ -262,6 +286,13 @@ LRESULT CALLBACK WindowsTrayManager::windowProc(HWND hwnd, UINT uMsg, WPARAM wPa
         }
         break;
 
+    case WM_TRAYICON:
+        if (lParam == WM_LBUTTONDBLCLK) {
+            // 双击恢复窗口
+            manager->showWindowFromTray(static_cast<UINT>(wParam));
+        }
+        break;
+
     case WM_COMMAND:
         break;
 
@@ -296,6 +327,9 @@ bool WindowsTrayManager::restoreWindow(HWND hwnd)
     ShowWindow(hwnd, SW_SHOW);
     SetForegroundWindow(hwnd);
 
+    // 移除托盘图标
+    Shell_NotifyIcon(NIM_DELETE, &it->iconData);
+
     // 从列表中移除
     m_hiddenWindows.erase(it);
 
@@ -320,5 +354,17 @@ void WindowsTrayManager::setHotkeyEnabled(bool enabled)
             // 注销热键
             UnregisterHotKey(m_mainWindow, 1);
         }
+    }
+}
+
+void WindowsTrayManager::showWindowFromTray(UINT iconId)
+{
+    auto it = std::find_if(m_hiddenWindows.begin(), m_hiddenWindows.end(),
+        [iconId](const HiddenWindow& hw) {
+            return hw.iconData.uID == iconId;
+        });
+
+    if (it != m_hiddenWindows.end()) {
+        restoreWindow(it->hwnd);
     }
 }
