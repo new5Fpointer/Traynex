@@ -33,6 +33,10 @@ MainWindow::MainWindow(QWidget* parent)
     , restoreAllAction(nullptr)
     , quitAction(nullptr)
     , refreshTimer(nullptr)
+    , hiddenTableContextMenu(nullptr)
+    , restoreHiddenAction(nullptr)
+    , restoreAllHiddenAction(nullptr)
+    , hideToAppTrayAction(nullptr)
 {
     // 创建 UI
     setupUI();
