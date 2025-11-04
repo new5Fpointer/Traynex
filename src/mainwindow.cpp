@@ -117,12 +117,6 @@ void MainWindow::setupUI()
     windowsTable->setColumnWidth(1, 150); // 进程名
     windowsTable->setColumnWidth(2, 80);  // 句柄
 
-    windowsTable->horizontalHeader()->setStyleSheet(
-        "QHeaderView::section {"
-        "    font-weight: normal;"
-        "}"
-    );
-
     // 组装布局
     mainLayout->addLayout(headerLayout);
     mainLayout->addWidget(windowsTable);
@@ -162,12 +156,6 @@ void MainWindow::setupUI()
     hiddenWindowsTable->setColumnWidth(0, 300); // 标题
     hiddenWindowsTable->setColumnWidth(1, 150); // 进程名
     hiddenWindowsTable->setColumnWidth(2, 80);  // 句柄
-
-    hiddenWindowsTable->horizontalHeader()->setStyleSheet(
-        "QHeaderView::section {"
-        "    font-weight: normal;"
-        "}"
-    );
    
     // 组装布局
     hiddenLayout->addWidget(hiddenWindowsTable);
