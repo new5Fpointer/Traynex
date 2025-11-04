@@ -331,7 +331,19 @@ void MainWindow::restoreSelectedWindow()
 
 void MainWindow::restoreAllWindows()
 {
+    // 恢复系统托盘隐藏的窗口
     WindowsTrayManager::instance().restoreAllWindows();
+
+    // 恢复应用托盘菜单隐藏的窗口
+    for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ) {
+        HWND hwnd = it.key();
+        if (hwnd && IsWindow(hwnd)) {
+            ShowWindow(hwnd, SW_SHOW);
+            SetForegroundWindow(hwnd);
+        }
+        it = m_appTrayWindows.erase(it);
+    }
+
     refreshAllLists();
     updateTrayMenu();
 }
@@ -659,6 +671,7 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
         refreshTimer->start(refreshIntervalSpin->value());
     }
 }
+
 void MainWindow::refreshWindowsTable()
 {
     auto currentWindowsInfo = getAllWindowsInfo();
@@ -1175,20 +1188,49 @@ void MainWindow::refreshHiddenWindowsTable()
     hiddenWindowsTable->setSortingEnabled(false);
     hiddenWindowsTable->setRowCount(0);
 
-    // 获取所有隐藏窗口
-    auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+    // 获取系统托盘隐藏的窗口
+    auto systemHiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
 
-    for (const auto& window : hiddenWindows) {
+    // 获取应用托盘菜单隐藏的窗口
+    auto appTrayHiddenWindows = m_appTrayWindows;
+
+    // 合并两种隐藏窗口
+    QMap<HWND, QString> allHiddenWindows;
+
+    // 添加系统托盘隐藏窗口
+    for (const auto& window : systemHiddenWindows) {
         HWND hwnd = window.first;
-        if (!hwnd || !IsWindow(hwnd)) {
-            continue; // 跳过无效窗口
+        if (hwnd && IsWindow(hwnd)) {
+            allHiddenWindows[hwnd] = QString::fromStdWString(window.second);
         }
+    }
+
+    // 添加应用托盘菜单隐藏窗口
+    for (auto it = appTrayHiddenWindows.begin(); it != appTrayHiddenWindows.end(); ++it) {
+        HWND hwnd = it.key();
+        if (hwnd && IsWindow(hwnd)) {
+            // 如果窗口标题还没有获取，就获取一次
+            if (!allHiddenWindows.contains(hwnd)) {
+                wchar_t title[256];
+                if (GetWindowText(hwnd, title, 256) > 0) {
+                    allHiddenWindows[hwnd] = QString::fromWCharArray(title);
+                }
+                else {
+                    allHiddenWindows[hwnd] = trc("MainWindow", "Unknown Window");
+                }
+            }
+        }
+    }
+
+    // 显示所有隐藏窗口
+    for (auto it = allHiddenWindows.begin(); it != allHiddenWindows.end(); ++it) {
+        HWND hwnd = it.key();
+        QString title = it.value();
 
         int row = hiddenWindowsTable->rowCount();
         hiddenWindowsTable->insertRow(row);
 
         // 窗口标题
-        QString title = QString::fromStdWString(window.second);
         QTableWidgetItem* titleItem = new QTableWidgetItem(title);
         titleItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(hwnd));
 
@@ -1244,7 +1286,20 @@ void MainWindow::restoreSelectedHiddenWindow()
         return;
     }
 
-    if (WindowsTrayManager::instance().restoreWindow(hwnd)) {
+    bool success = false;
+
+    // 尝试从系统托盘恢复
+    success = WindowsTrayManager::instance().restoreWindow(hwnd);
+
+    // 系统托盘恢复失败，尝试从应用托盘菜单恢复
+    if (!success && m_appTrayWindows.contains(hwnd)) {
+        ShowWindow(hwnd, SW_SHOW);
+        SetForegroundWindow(hwnd);
+        removeWindowFromTrayMenu(hwnd);
+        success = true;
+    }
+
+    if (success) {
         refreshAllLists();
         updateTrayMenu();
     }
