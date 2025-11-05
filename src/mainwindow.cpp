@@ -33,6 +33,10 @@ MainWindow::MainWindow(QWidget* parent)
     , restoreAllAction(nullptr)
     , quitAction(nullptr)
     , refreshTimer(nullptr)
+    , hiddenTableContextMenu(nullptr)
+    , restoreHiddenAction(nullptr)
+    , restoreAllHiddenAction(nullptr)
+    , hideToAppTrayAction(nullptr)
 {
     // 创建 UI
     setupUI();
@@ -117,6 +121,12 @@ void MainWindow::setupUI()
     windowsTable->setColumnWidth(1, 150); // 进程名
     windowsTable->setColumnWidth(2, 80);  // 句柄
 
+    windowsTable->horizontalHeader()->setStyleSheet(
+        "QHeaderView::section {"
+        "    font-weight: normal;"
+        "}"
+    );
+
     // 组装布局
     mainLayout->addLayout(headerLayout);
     mainLayout->addWidget(windowsTable);
@@ -156,7 +166,13 @@ void MainWindow::setupUI()
     hiddenWindowsTable->setColumnWidth(0, 300); // 标题
     hiddenWindowsTable->setColumnWidth(1, 150); // 进程名
     hiddenWindowsTable->setColumnWidth(2, 80);  // 句柄
-   
+
+    hiddenWindowsTable->horizontalHeader()->setStyleSheet(
+        "QHeaderView::section {"
+        "    font-weight: normal;"
+        "}"
+    );
+
     // 组装布局
     hiddenLayout->addWidget(hiddenWindowsTable);
 
@@ -331,13 +347,13 @@ void MainWindow::restoreAllWindows()
     WindowsTrayManager::instance().restoreAllWindows();
 
     // 恢复应用托盘菜单隐藏的窗口
-    for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ) {
-        HWND hwnd = it.key();
+    QList<HWND> appTrayWindows = m_appTrayWindows.keys();
+    for (HWND hwnd : appTrayWindows) {
         if (hwnd && IsWindow(hwnd)) {
             ShowWindow(hwnd, SW_SHOW);
             SetForegroundWindow(hwnd);
         }
-        it = m_appTrayWindows.erase(it);
+        removeWindowFromTrayMenu(hwnd);
     }
 
     refreshAllLists();
@@ -868,7 +884,7 @@ void MainWindow::retranslateUI()
         trc("MainWindow", "Window Title"),
         trc("MainWindow", "Process"),
         trc("MainWindow", "Handle")
-    });
+        });
 
     // 更新标签页标题
     tabWidget->setTabText(0, trc("MainWindow", "Main"));
@@ -1124,7 +1140,7 @@ void MainWindow::flashWindowInTaskbar(HWND hwnd)
     }
 
     FlashWindow(hwnd, TRUE);
-    
+
     qDebug() << "Window highlighted:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
 }
 
@@ -1307,7 +1323,6 @@ void MainWindow::restoreSelectedHiddenWindow()
 
 void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
 {
-    // 使用成员变量，避免局部变量
     if (!hiddenTableContextMenu) {
         hiddenTableContextMenu = new QMenu(this);
 
@@ -1335,8 +1350,12 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
     // 根据状态更新菜单项
     restoreHiddenAction->setEnabled(selectedHwnd && IsWindow(selectedHwnd));
 
-    auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
-    restoreAllHiddenAction->setEnabled(!hiddenWindows.empty());
+    // 检查所有类型的隐藏窗口
+    auto systemHiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+    bool hasSystemHiddenWindows = !systemHiddenWindows.empty();
+    bool hasAppTrayHiddenWindows = !m_appTrayWindows.isEmpty();
+
+    restoreAllHiddenAction->setEnabled(hasSystemHiddenWindows || hasAppTrayHiddenWindows);
 
     hiddenTableContextMenu->exec(hiddenWindowsTable->viewport()->mapToGlobal(pos));
 }
@@ -1513,6 +1532,7 @@ void MainWindow::updateTrayMenuLayout()
         if (!hwnd || !IsWindow(hwnd)) {
             windowsToRemove.append(hwnd);
             if (action) {
+                trayMenu->removeAction(action);
                 action->deleteLater();
             }
         }
