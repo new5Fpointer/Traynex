@@ -60,7 +60,7 @@ MainWindow::MainWindow(QWidget* parent)
     loadLanguage(language);
 
     setWindowTitle("Traynex");
-    resize(595, 500);
+    resize(800, 600);
 
     // 初始化 Windows 原生托盘管理器
     if (!WindowsTrayManager::instance().initialize()) {
@@ -102,10 +102,10 @@ void MainWindow::setupUI()
     windowsTable->setColumnCount(5);
     windowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
-        trc("MainWindow", "Process"),
+        trc("MainWindow", "Handle"),
         trc("MainWindow", "Class"),
         trc("MainWindow", "Process ID"),
-        trc("MainWindow", "Handle")
+        trc("MainWindow", "Process")
         });
     // 设置固定的行号列宽度
     windowsTable->verticalHeader()->setDefaultSectionSize(30); // 行高
@@ -121,10 +121,10 @@ void MainWindow::setupUI()
 
     // 列宽设置
     windowsTable->setColumnWidth(0, 300); // 标题
-    windowsTable->setColumnWidth(1, 150); // 进程名
-    windowsTable->setColumnWidth(2, 120); // 窗口类
+    windowsTable->setColumnWidth(1, 80);  // 句柄
+    windowsTable->setColumnWidth(2, 125); // 窗口类
     windowsTable->setColumnWidth(3, 80);  // 进程ID
-    windowsTable->setColumnWidth(2, 80);  // 句柄
+    windowsTable->setColumnWidth(4, 150); // 进程名
 
     windowsTable->horizontalHeader()->setStyleSheet(
         "QHeaderView::section {"
@@ -152,10 +152,10 @@ void MainWindow::setupUI()
     hiddenWindowsTable->setColumnCount(5);
     hiddenWindowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
-        trc("MainWindow", "Process"),
+        trc("MainWindow", "Handle"),
         trc("MainWindow", "Class"),
         trc("MainWindow", "Process ID"),
-        trc("MainWindow", "Handle")
+        trc("MainWindow", "Process")
         });
     // 设置固定的行号列宽度
     hiddenWindowsTable->verticalHeader()->setDefaultSectionSize(30); // 行高
@@ -171,10 +171,10 @@ void MainWindow::setupUI()
 
     // 列宽设置
     hiddenWindowsTable->setColumnWidth(0, 300); // 标题
-    hiddenWindowsTable->setColumnWidth(1, 150); // 进程名
+    hiddenWindowsTable->setColumnWidth(1, 80);  // 句柄
     hiddenWindowsTable->setColumnWidth(2, 120); // 窗口类
-    windowsTable->setColumnWidth(3, 80);  // 进程ID
-    hiddenWindowsTable->setColumnWidth(2, 80);  // 句柄
+    hiddenWindowsTable->setColumnWidth(3, 80);  // 进程ID
+    hiddenWindowsTable->setColumnWidth(4, 150); // 进程名
 
     hiddenWindowsTable->horizontalHeader()->setStyleSheet(
         "QHeaderView::section {"
@@ -747,8 +747,9 @@ void MainWindow::refreshWindowsTable()
         QTableWidgetItem* titleItem = new QTableWidgetItem(window.second.title);
         titleItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(window.second.hwnd));
 
-        // 进程名
-        QTableWidgetItem* processItem = new QTableWidgetItem(window.second.processName);
+        // 窗口句柄
+        QTableWidgetItem* handleItem = new QTableWidgetItem(
+            QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
 
         // 窗口类名
         QTableWidgetItem* classItem = new QTableWidgetItem(window.second.className);
@@ -756,15 +757,14 @@ void MainWindow::refreshWindowsTable()
         // 进程ID
         QTableWidgetItem* pidItem = new QTableWidgetItem(QString::number(window.second.processId));
 
-        // 窗口句柄
-        QTableWidgetItem* handleItem = new QTableWidgetItem(
-            QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
+        // 进程名
+        QTableWidgetItem* processItem = new QTableWidgetItem(window.second.processName);
 
-        windowsTable->setItem(row, 0, titleItem);
-        windowsTable->setItem(row, 1, processItem);
-        windowsTable->setItem(row, 2, classItem);
-        windowsTable->setItem(row, 3, pidItem);
-        windowsTable->setItem(row, 4, handleItem);
+        windowsTable->setItem(row, 0, titleItem);    // 窗口标题
+        windowsTable->setItem(row, 1, handleItem);   // 句柄
+        windowsTable->setItem(row, 2, classItem);    // 类
+        windowsTable->setItem(row, 3, pidItem);      // 进程ID
+        windowsTable->setItem(row, 4, processItem);  // 进程名
 
         // 隐藏窗口显示为灰色
         if (window.second.isHidden) {
@@ -914,18 +914,19 @@ void MainWindow::retranslateUI()
     // 更新表格标题
     windowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
-        trc("MainWindow", "Process"),
+        trc("MainWindow", "Handle"),
         trc("MainWindow", "Class"),
         trc("MainWindow", "Process ID"),
-        trc("MainWindow", "Handle")
+        trc("MainWindow", "Process")
         });
     hiddenWindowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
-        trc("MainWindow", "Process"),
+        trc("MainWindow", "Handle"),
         trc("MainWindow", "Class"),
         trc("MainWindow", "Process ID"),
-        trc("MainWindow", "Handle")
+        trc("MainWindow", "Process")
         });
+
 
     // 更新标签页标题
     tabWidget->setTabText(0, trc("MainWindow", "Main"));
@@ -1342,8 +1343,9 @@ void MainWindow::refreshHiddenWindowsTable()
         QTableWidgetItem* titleItem = new QTableWidgetItem(title);
         titleItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(hwnd));
 
-        // 进程名
-        QTableWidgetItem* processItem = new QTableWidgetItem(processName);
+        // 窗口句柄
+        QTableWidgetItem* handleItem = new QTableWidgetItem(
+            QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
 
         // 窗口类名
         QTableWidgetItem* classItem = new QTableWidgetItem(className);
@@ -1351,15 +1353,14 @@ void MainWindow::refreshHiddenWindowsTable()
         // 进程ID
         QTableWidgetItem* pidItem = new QTableWidgetItem(QString::number(processId));
 
-        // 窗口句柄
-        QTableWidgetItem* handleItem = new QTableWidgetItem(
-            QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
+        // 进程名
+        QTableWidgetItem* processItem = new QTableWidgetItem(processName);
 
-        hiddenWindowsTable->setItem(row, 0, titleItem);
-        hiddenWindowsTable->setItem(row, 1, processItem);
-        hiddenWindowsTable->setItem(row, 2, classItem);
-        hiddenWindowsTable->setItem(row, 3, pidItem);
-        hiddenWindowsTable->setItem(row, 4, handleItem);
+        hiddenWindowsTable->setItem(row, 0, titleItem);    // 窗口标题
+        hiddenWindowsTable->setItem(row, 1, handleItem);   // 句柄
+        hiddenWindowsTable->setItem(row, 2, classItem);    // 类
+        hiddenWindowsTable->setItem(row, 3, pidItem);      // 进程ID
+        hiddenWindowsTable->setItem(row, 4, processItem);  // 进程名
     }
 
     hiddenWindowsTable->setSortingEnabled(true);
