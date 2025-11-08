@@ -35,6 +35,7 @@ MainWindow::MainWindow(QWidget* parent)
     , refreshTimer(nullptr)
     , hiddenTableContextMenu(nullptr)
     , restoreHiddenAction(nullptr)
+    , restoreLastHiddenAction(nullptr)
     , restoreAllHiddenAction(nullptr)
     , hideToAppTrayAction(nullptr)
     , restoreLastAction(nullptr)
@@ -969,6 +970,14 @@ void MainWindow::retranslateUI()
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
 
+    // 更新隐藏窗口表格右键菜单
+    if (hiddenTableContextMenu) {
+        restoreHiddenAction->setText(trc("MainWindow", "Restore Window"));
+        restoreLastHiddenAction->setText(trc("MainWindow", "Restore Last Window"));  // 新增
+        restoreAllHiddenAction->setText(trc("MainWindow", "Restore All Windows"));
+    }
+
+
     // 刷新表格内容
     refreshWindowsTable();
 }
@@ -1341,14 +1350,16 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
         hiddenTableContextMenu = new QMenu(this);
 
         restoreHiddenAction = new QAction(trc("MainWindow", "Restore Window"), this);
+        restoreLastHiddenAction = new QAction(trc("MainWindow", "Restore Last Window"), this);
         restoreAllHiddenAction = new QAction(trc("MainWindow", "Restore All Windows"), this);
 
         hiddenTableContextMenu->addAction(restoreHiddenAction);
+        hiddenTableContextMenu->addAction(restoreLastHiddenAction);
         hiddenTableContextMenu->addSeparator();
         hiddenTableContextMenu->addAction(restoreAllHiddenAction);
 
-        // 一次性连接信号
         connect(restoreHiddenAction, &QAction::triggered, this, &MainWindow::restoreSelectedHiddenWindow);
+        connect(restoreLastHiddenAction, &QAction::triggered, this, &MainWindow::restoreLastWindow);
         connect(restoreAllHiddenAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
     }
 
@@ -1363,6 +1374,7 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
 
     // 根据状态更新菜单项
     restoreHiddenAction->setEnabled(selectedHwnd && IsWindow(selectedHwnd));
+    restoreLastHiddenAction->setEnabled(!m_hiddenWindowOrder.isEmpty());
 
     // 检查所有类型的隐藏窗口
     auto systemHiddenWindows = WindowsTrayManager::instance().getHiddenWindows();

@@ -122,6 +122,7 @@ private:
 	// 隐藏窗口页面右键菜单
     QMenu* hiddenTableContextMenu;
     QAction* restoreHiddenAction;
+    QAction* restoreLastHiddenAction;
     QAction* restoreAllHiddenAction;
 
     // 设置页面组件
