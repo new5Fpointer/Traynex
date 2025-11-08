@@ -18,6 +18,7 @@
 #include <QComboBox>
 #include <QTimer>
 #include <QMap>
+#include <windows.h>
 
 class MainWindow : public QMainWindow
 {
@@ -90,6 +91,7 @@ private:
         QString title;
         QString processName;
         QString className;
+        DWORD processId;
         HWND hwnd;
         bool isHidden;
         bool isVisible;

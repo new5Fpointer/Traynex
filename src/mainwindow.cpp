@@ -22,7 +22,6 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QThread>
-#include <windows.h>
 #include <psapi.h>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -100,11 +99,12 @@ void MainWindow::setupUI()
 
     // 创建表格
     windowsTable = new QTableWidget();
-    windowsTable->setColumnCount(4);
+    windowsTable->setColumnCount(5);
     windowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
         trc("MainWindow", "Process"),
         trc("MainWindow", "Class"),
+        trc("MainWindow", "Process ID"),
         trc("MainWindow", "Handle")
         });
     // 设置固定的行号列宽度
@@ -123,6 +123,7 @@ void MainWindow::setupUI()
     windowsTable->setColumnWidth(0, 300); // 标题
     windowsTable->setColumnWidth(1, 150); // 进程名
     windowsTable->setColumnWidth(2, 120); // 窗口类
+    windowsTable->setColumnWidth(3, 80);  // 进程ID
     windowsTable->setColumnWidth(2, 80);  // 句柄
 
     windowsTable->horizontalHeader()->setStyleSheet(
@@ -148,11 +149,12 @@ void MainWindow::setupUI()
 
     // 创建隐藏窗口表格
     hiddenWindowsTable = new QTableWidget();
-    hiddenWindowsTable->setColumnCount(4);
+    hiddenWindowsTable->setColumnCount(5);
     hiddenWindowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
         trc("MainWindow", "Process"),
         trc("MainWindow", "Class"),
+        trc("MainWindow", "Process ID"),
         trc("MainWindow", "Handle")
         });
     // 设置固定的行号列宽度
@@ -171,6 +173,7 @@ void MainWindow::setupUI()
     hiddenWindowsTable->setColumnWidth(0, 300); // 标题
     hiddenWindowsTable->setColumnWidth(1, 150); // 进程名
     hiddenWindowsTable->setColumnWidth(2, 120); // 窗口类
+    windowsTable->setColumnWidth(3, 80);  // 进程ID
     hiddenWindowsTable->setColumnWidth(2, 80);  // 句柄
 
     hiddenWindowsTable->horizontalHeader()->setStyleSheet(
@@ -718,7 +721,8 @@ void MainWindow::refreshWindowsTable()
                 currentWindowsInfo[i].second.isHidden != m_lastWindowsInfo[i].second.isHidden ||
                 currentWindowsInfo[i].second.title != m_lastWindowsInfo[i].second.title ||
                 currentWindowsInfo[i].second.processName != m_lastWindowsInfo[i].second.processName ||
-                currentWindowsInfo[i].second.className != m_lastWindowsInfo[i].second.className) {
+                currentWindowsInfo[i].second.className != m_lastWindowsInfo[i].second.className ||
+                currentWindowsInfo[i].second.processId != m_lastWindowsInfo[i].second.processId) {
                 needsRefresh = true;
                 break;
             }
@@ -749,6 +753,9 @@ void MainWindow::refreshWindowsTable()
         // 窗口类名
         QTableWidgetItem* classItem = new QTableWidgetItem(window.second.className);
 
+        // 进程ID
+        QTableWidgetItem* pidItem = new QTableWidgetItem(QString::number(window.second.processId));
+
         // 窗口句柄
         QTableWidgetItem* handleItem = new QTableWidgetItem(
             QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
@@ -756,11 +763,12 @@ void MainWindow::refreshWindowsTable()
         windowsTable->setItem(row, 0, titleItem);
         windowsTable->setItem(row, 1, processItem);
         windowsTable->setItem(row, 2, classItem);
-        windowsTable->setItem(row, 3, handleItem);
+        windowsTable->setItem(row, 3, pidItem);
+        windowsTable->setItem(row, 4, handleItem);
 
         // 隐藏窗口显示为灰色
         if (window.second.isHidden) {
-            for (int col = 0; col < 4; ++col) {
+            for (int col = 0; col < 5; ++col) {
                 if (auto item = windowsTable->item(row, col)) {
                     item->setForeground(Qt::gray);
                 }
@@ -828,6 +836,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
         info.title = windowTitle;
         info.processName = processNameStr;
         info.className = windowClass;
+        info.processId = processId;
         info.hwnd = hwnd;
         info.isVisible = IsWindowVisible(hwnd);
         info.isHidden = false; // 会在外部设置
@@ -907,12 +916,14 @@ void MainWindow::retranslateUI()
         trc("MainWindow", "Window Title"),
         trc("MainWindow", "Process"),
         trc("MainWindow", "Class"),
+        trc("MainWindow", "Process ID"),
         trc("MainWindow", "Handle")
         });
     hiddenWindowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
         trc("MainWindow", "Process"),
         trc("MainWindow", "Class"),
+        trc("MainWindow", "Process ID"),
         trc("MainWindow", "Handle")
         });
 
@@ -1246,18 +1257,19 @@ void MainWindow::refreshHiddenWindowsTable()
     auto appTrayHiddenWindows = m_appTrayWindows;
 
     // 合并两种隐藏窗口
-    QMap<HWND, std::tuple<QString, QString, QString>> allHiddenWindows;
+    QMap<HWND, std::tuple<QString, QString, QString, DWORD>> allHiddenWindows;  // 改为tuple存储标题、进程名、类名、进程ID
 
     // 添加系统托盘隐藏窗口
     for (const auto& window : systemHiddenWindows) {
         HWND hwnd = window.first;
         if (hwnd && IsWindow(hwnd)) {
-            // 获取进程名和类名
+            // 获取进程名、类名和进程ID
             QString processName = "Unknown";
             QString className = "Unknown";
-
             DWORD processId;
+
             GetWindowThreadProcessId(hwnd, &processId);
+
             HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
             if (process) {
                 wchar_t processPath[MAX_PATH] = L"";
@@ -1275,7 +1287,8 @@ void MainWindow::refreshHiddenWindowsTable()
             allHiddenWindows[hwnd] = std::make_tuple(
                 QString::fromStdWString(window.second),
                 processName,
-                className
+                className,
+                processId
             );
         }
     }
@@ -1294,9 +1307,10 @@ void MainWindow::refreshHiddenWindowsTable()
 
                 QString processName = "Unknown";
                 QString className = "Unknown";
-
                 DWORD processId;
+
                 GetWindowThreadProcessId(hwnd, &processId);
+
                 HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
                 if (process) {
                     wchar_t processPath[MAX_PATH] = L"";
@@ -1311,7 +1325,7 @@ void MainWindow::refreshHiddenWindowsTable()
                     className = QString::fromWCharArray(classBuffer);
                 }
 
-                allHiddenWindows[hwnd] = std::make_tuple(windowTitle, processName, className);
+                allHiddenWindows[hwnd] = std::make_tuple(windowTitle, processName, className, processId);
             }
         }
     }
@@ -1319,7 +1333,7 @@ void MainWindow::refreshHiddenWindowsTable()
     // 显示所有隐藏窗口
     for (auto it = allHiddenWindows.begin(); it != allHiddenWindows.end(); ++it) {
         HWND hwnd = it.key();
-        auto [title, processName, className] = it.value();
+        auto [title, processName, className, processId] = it.value();
 
         int row = hiddenWindowsTable->rowCount();
         hiddenWindowsTable->insertRow(row);
@@ -1334,6 +1348,9 @@ void MainWindow::refreshHiddenWindowsTable()
         // 窗口类名
         QTableWidgetItem* classItem = new QTableWidgetItem(className);
 
+        // 进程ID
+        QTableWidgetItem* pidItem = new QTableWidgetItem(QString::number(processId));
+
         // 窗口句柄
         QTableWidgetItem* handleItem = new QTableWidgetItem(
             QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
@@ -1341,7 +1358,8 @@ void MainWindow::refreshHiddenWindowsTable()
         hiddenWindowsTable->setItem(row, 0, titleItem);
         hiddenWindowsTable->setItem(row, 1, processItem);
         hiddenWindowsTable->setItem(row, 2, classItem);
-        hiddenWindowsTable->setItem(row, 3, handleItem);
+        hiddenWindowsTable->setItem(row, 3, pidItem);
+        hiddenWindowsTable->setItem(row, 4, handleItem);
     }
 
     hiddenWindowsTable->setSortingEnabled(true);
