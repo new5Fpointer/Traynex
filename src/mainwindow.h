@@ -57,6 +57,7 @@ private slots:
     void updateTrayMenu();
     void hideToAppTray();
     void restoreWindowFromAppTray();
+    void restoreLastWindow();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -94,6 +95,7 @@ private:
     };
     QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
     QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
+    QList<HWND> m_hiddenWindowOrder;
 
     // 配置文件路径
     QString getConfigPath() const;
@@ -138,6 +140,7 @@ private:
     QMenu* trayMenu;
     QAction* showAction;
     QMap<HWND, QAction*> m_appTrayWindows;
+    QAction* restoreLastAction;
     QAction* restoreAllAction;
     QAction* quitAction;
 

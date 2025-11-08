@@ -37,6 +37,7 @@ MainWindow::MainWindow(QWidget* parent)
     , restoreHiddenAction(nullptr)
     , restoreAllHiddenAction(nullptr)
     , hideToAppTrayAction(nullptr)
+    , restoreLastAction(nullptr)
 {
     // 创建 UI
     setupUI();
@@ -356,6 +357,8 @@ void MainWindow::restoreAllWindows()
         removeWindowFromTrayMenu(hwnd);
     }
 
+    m_hiddenWindowOrder.clear();
+
     refreshAllLists();
     updateTrayMenu();
 }
@@ -460,6 +463,9 @@ void MainWindow::createTrayIcon()
     showAction = new QAction(trc("MainWindow", "Open Main Window"), this);
     connect(showAction, &QAction::triggered, this, &MainWindow::showWindow);
 
+    restoreLastAction = new QAction(trc("MainWindow", "Restore Last Window"), this);
+    connect(restoreLastAction, &QAction::triggered, this, &MainWindow::restoreLastWindow);
+
     restoreAllAction = new QAction(trc("MainWindow", "Restore All Windows"), this);
     connect(restoreAllAction, &QAction::triggered, this, &MainWindow::restoreAllWindows);
 
@@ -468,6 +474,8 @@ void MainWindow::createTrayIcon()
 
     trayMenu->addAction(showAction);
     trayMenu->addSeparator();
+    trayMenu->addSeparator();
+    trayMenu->addAction(restoreLastAction);
     trayMenu->addAction(restoreAllAction);
     trayMenu->addSeparator();
     trayMenu->addAction(quitAction);
@@ -575,6 +583,10 @@ void MainWindow::hideSelectedToTray()
     }
 
     if (WindowsTrayManager::instance().minimizeWindowToTray(hwnd)) {
+        // 记录隐藏顺序
+        m_hiddenWindowOrder.removeAll(hwnd);  // 先移除（如果已存在）
+        m_hiddenWindowOrder.prepend(hwnd);    // 添加到开头（最近隐藏的）
+
         // 成功隐藏，刷新显示
         refreshAllLists();
         updateTrayMenu();
@@ -895,6 +907,7 @@ void MainWindow::retranslateUI()
     // 更新托盘菜单
     if (trayIcon) {
         showAction->setText(trc("MainWindow", "Open Main Window"));
+        restoreLastAction->setText(trc("MainWindow", "Restore Last Window"));
         restoreAllAction->setText(trc("MainWindow", "Restore All Windows"));
         quitAction->setText(trc("MainWindow", "Exit"));
         trayIcon->setToolTip(trc("MainWindow", "Traynex - Right click for menu"));
@@ -1312,6 +1325,7 @@ void MainWindow::restoreSelectedHiddenWindow()
     }
 
     if (success) {
+        m_hiddenWindowOrder.removeAll(hwnd);
         refreshAllLists();
         updateTrayMenu();
     }
@@ -1367,6 +1381,8 @@ void MainWindow::updateTrayMenu()
         return;
     }
 
+    restoreLastAction->setEnabled(!m_hiddenWindowOrder.isEmpty());
+
     // 更新菜单布局
     updateTrayMenuLayout();
 }
@@ -1417,6 +1433,10 @@ void MainWindow::hideToAppTray()
 
     // 隐藏窗口
     ShowWindow(hwnd, SW_HIDE);
+
+    // 记录隐藏顺序
+    m_hiddenWindowOrder.removeAll(hwnd);  // 先移除（如果已存在）
+    m_hiddenWindowOrder.prepend(hwnd);    // 添加到开头（最近隐藏的）
 
     // 添加到托盘菜单
     addWindowToTrayMenu(hwnd, windowTitle);
@@ -1517,7 +1537,11 @@ void MainWindow::updateTrayMenuLayout()
         for (int i = secondSeparatorIndex - 1; i > firstSeparatorIndex; --i) {
             QAction* action = actions[i];
             // 只移除不是固定动作的项
-            if (action != showAction && action != restoreAllAction && action != quitAction && !action->isSeparator()) {
+            if (action != showAction &&
+                action != restoreLastAction &&
+                action != restoreAllAction &&
+                action != quitAction &&
+                !action->isSeparator()) {
                 trayMenu->removeAction(action);
             }
         }
@@ -1545,18 +1569,31 @@ void MainWindow::updateTrayMenuLayout()
 
     // 如果有隐藏窗口，在第一个分隔符后添加它们
     if (!m_appTrayWindows.isEmpty()) {
-        // 添加所有隐藏窗口
-        for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it) {
-            HWND hwnd = it.key();
-            QAction* action = it.value();
+        QList<QAction*> actions = trayMenu->actions();
+        int targetSeparatorIndex = -1;
+        int separatorCount = 0;
 
-            if (hwnd && IsWindow(hwnd) && action) {
-                trayMenu->insertAction(restoreAllAction, action);
+        for (int i = 0; i < actions.size(); ++i) {
+            if (actions[i]->isSeparator()) {
+                separatorCount++;
+                if (separatorCount == 2) { // 第二个分隔符
+                    targetSeparatorIndex = i;
+                    break;
+                }
             }
         }
 
-        // 添加分隔符
-        trayMenu->insertSeparator(restoreAllAction);
+        if (targetSeparatorIndex != -1) {
+            // 在第二个分隔符之前添加隐藏窗口
+            for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it) {
+                HWND hwnd = it.key();
+                QAction* action = it.value();
+
+                if (hwnd && IsWindow(hwnd) && action) {
+                    trayMenu->insertAction(actions[targetSeparatorIndex], action);
+                }
+            }
+        }
     }
 
     // 更新 restoreAllAction 状态
@@ -1587,9 +1624,61 @@ void MainWindow::restoreWindowFromAppTray()
     // 从菜单中移除
     removeWindowFromTrayMenu(hwnd);
 
+    m_hiddenWindowOrder.removeAll(hwnd);
+
     // 刷新显示
     refreshAllLists();
     updateTrayMenu();
 
     qDebug() << "Window restored from app tray:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
+}
+
+void MainWindow::restoreLastWindow()
+{
+    if (m_hiddenWindowOrder.isEmpty()) {
+        QMessageBox::information(this, trc("MainWindow", "Information"),
+            trc("MainWindow", "No hidden windows to restore"));
+        return;
+    }
+
+    // 获取最近隐藏的窗口
+    HWND lastHwnd = m_hiddenWindowOrder.takeFirst();  // 从列表中移除
+
+    if (!lastHwnd || !IsWindow(lastHwnd)) {
+        // 如果窗口无效，递归尝试下一个
+        m_hiddenWindowOrder.removeAll(lastHwnd);
+        restoreLastWindow();
+        return;
+    }
+
+    bool success = false;
+
+    // 尝试从系统托盘恢复
+    success = WindowsTrayManager::instance().restoreWindow(lastHwnd);
+
+    // 系统托盘恢复失败，尝试从应用托盘菜单恢复
+    if (!success && m_appTrayWindows.contains(lastHwnd)) {
+        ShowWindow(lastHwnd, SW_SHOW);
+        SetForegroundWindow(lastHwnd);
+        removeWindowFromTrayMenu(lastHwnd);
+        success = true;
+    }
+
+    if (success) {
+        refreshAllLists();
+        updateTrayMenu();
+
+        // 显示成功消息
+        wchar_t title[256];
+        if (GetWindowText(lastHwnd, title, 256) > 0) {
+            QMessageBox::information(this, trc("MainWindow", "Success"),
+                trc("MainWindow", "Restored window: %1").arg(QString::fromWCharArray(title)));
+        }
+    }
+    else {
+        // 恢复失败，将窗口重新放回列表开头
+        m_hiddenWindowOrder.prepend(lastHwnd);
+        QMessageBox::warning(this, trc("MainWindow", "Error"),
+            trc("MainWindow", "Failed to restore the last window"));
+    }
 }
