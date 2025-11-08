@@ -89,6 +89,7 @@ private:
     struct WindowInfo {
         QString title;
         QString processName;
+        QString className;
         HWND hwnd;
         bool isHidden;
         bool isVisible;
