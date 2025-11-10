@@ -24,6 +24,7 @@ set(PROJECT_SOURCES
     src/windowstraymanager.h
     src/windowstraymanager.cpp
     resource.qrc
+    icon.rc
 )
 
 set(WIN32_LIBS shell32 user32 psapi)
@@ -32,9 +33,14 @@ qt_add_resources(QT_RESOURCES
     resource.qrc
 )
 
+if(WIN32)
+    set(WIN_RESOURCES icon.rc)
+endif()
+
 qt_add_executable(${PROJECT_NAME}
     ${PROJECT_SOURCES}
     ${QT_RESOURCES}
+    ${WIN_RESOURCES}
 )
 
 set_target_properties(${PROJECT_NAME}
