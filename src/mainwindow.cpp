@@ -99,6 +99,17 @@ void MainWindow::setupUI()
 
     // 创建表格
     windowsTable = new QTableWidget();
+
+    // 移除边框、网格线和行号
+    windowsTable->setFrameShape(QFrame::NoFrame);
+    windowsTable->setShowGrid(false);
+    windowsTable->verticalHeader()->setVisible(false);
+
+    // 设置默认的文本行为
+    windowsTable->setTextElideMode(Qt::ElideRight);
+    windowsTable->setProperty("wordWrap", false);
+
+    // 表头设置
     windowsTable->setColumnCount(5);
     windowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
@@ -107,10 +118,7 @@ void MainWindow::setupUI()
         trc("MainWindow", "Process ID"),
         trc("MainWindow", "Process")
         });
-    // 设置固定的行号列宽度
-    windowsTable->verticalHeader()->setDefaultSectionSize(30); // 行高
-    windowsTable->verticalHeader()->setMinimumWidth(20);       // 最小宽度
-    windowsTable->verticalHeader()->setMaximumWidth(20);       // 最大宽度
+    windowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
 
     // 表格属性
     windowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -119,24 +127,27 @@ void MainWindow::setupUI()
     windowsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     windowsTable->setSortingEnabled(true);
 
+    // QSS 样式
+    windowsTable->setStyleSheet(
+        "QTableWidget {"
+        "    border: none;"
+        "}"
+        "QTableWidget::item:selected {"
+        "    font-weight: normal;"
+        "}"
+    );
+
     // 列宽设置
     windowsTable->setColumnWidth(0, 300); // 标题
     windowsTable->setColumnWidth(1, 80);  // 句柄
-    windowsTable->setColumnWidth(2, 125); // 窗口类
+    windowsTable->setColumnWidth(2, 120); // 窗口类
     windowsTable->setColumnWidth(3, 80);  // 进程ID
-    windowsTable->horizontalHeader()->setSectionResizeMode(// 进程名
-        4,
-        QHeaderView::Stretch
-    );
+    windowsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
     windowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
     windowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
     windowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
     windowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
-    windowsTable->horizontalHeader()->setStyleSheet(
-        "QHeaderView::section {"
-        "    font-weight: normal;"
-        "}"
-    );
+
 
     // 组装布局
     mainLayout->addLayout(headerLayout);
@@ -155,6 +166,16 @@ void MainWindow::setupUI()
 
     // 创建隐藏窗口表格
     hiddenWindowsTable = new QTableWidget();
+
+    // 移除边框、网格线和行号
+    hiddenWindowsTable->setFrameShape(QFrame::NoFrame);
+    hiddenWindowsTable->setShowGrid(false);
+    hiddenWindowsTable->verticalHeader()->setVisible(false);
+
+    // 设置默认的文本行为
+    hiddenWindowsTable->setTextElideMode(Qt::ElideRight);
+
+    // 表头设置：列数、标签和左对齐
     hiddenWindowsTable->setColumnCount(5);
     hiddenWindowsTable->setHorizontalHeaderLabels({
         trc("MainWindow", "Window Title"),
@@ -163,10 +184,7 @@ void MainWindow::setupUI()
         trc("MainWindow", "Process ID"),
         trc("MainWindow", "Process")
         });
-    // 设置固定的行号列宽度
-    hiddenWindowsTable->verticalHeader()->setDefaultSectionSize(30); // 行高
-    hiddenWindowsTable->verticalHeader()->setMinimumWidth(20);       // 最小宽度
-    hiddenWindowsTable->verticalHeader()->setMaximumWidth(20);       // 最大宽度
+    hiddenWindowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
 
     // 表格属性
     hiddenWindowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -175,25 +193,27 @@ void MainWindow::setupUI()
     hiddenWindowsTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     hiddenWindowsTable->setSortingEnabled(true);
 
-    // 列宽设置
+    // QSS 样式
+    hiddenWindowsTable->setStyleSheet(
+        "QTableWidget {"
+        "    border: none;"
+        "}"
+        "QTableWidget::item:selected {"
+        "    font-weight: normal;"
+        "}"
+    );
+
+    // 列宽设置和拉伸
     hiddenWindowsTable->setColumnWidth(0, 300); // 标题
     hiddenWindowsTable->setColumnWidth(1, 80);  // 句柄
     hiddenWindowsTable->setColumnWidth(2, 120); // 窗口类
     hiddenWindowsTable->setColumnWidth(3, 80);  // 进程ID
-    hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(// 进程名
-        4,
-        QHeaderView::Stretch
-    );
+    hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch); 
     hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
     hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
     hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
     hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
 
-    hiddenWindowsTable->horizontalHeader()->setStyleSheet(
-        "QHeaderView::section {"
-        "    font-weight: normal;"
-        "}"
-    );
 
     // 组装布局
     hiddenLayout->addWidget(hiddenWindowsTable);
