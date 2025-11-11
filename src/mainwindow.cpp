@@ -124,8 +124,14 @@ void MainWindow::setupUI()
     windowsTable->setColumnWidth(1, 80);  // 句柄
     windowsTable->setColumnWidth(2, 125); // 窗口类
     windowsTable->setColumnWidth(3, 80);  // 进程ID
-    windowsTable->setColumnWidth(4, 150); // 进程名
-
+    windowsTable->horizontalHeader()->setSectionResizeMode(// 进程名
+        4,
+        QHeaderView::Stretch
+    );
+    windowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+    windowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+    windowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
+    windowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
     windowsTable->horizontalHeader()->setStyleSheet(
         "QHeaderView::section {"
         "    font-weight: normal;"
@@ -174,7 +180,14 @@ void MainWindow::setupUI()
     hiddenWindowsTable->setColumnWidth(1, 80);  // 句柄
     hiddenWindowsTable->setColumnWidth(2, 120); // 窗口类
     hiddenWindowsTable->setColumnWidth(3, 80);  // 进程ID
-    hiddenWindowsTable->setColumnWidth(4, 150); // 进程名
+    hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(// 进程名
+        4,
+        QHeaderView::Stretch
+    );
+    hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+    hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+    hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
+    hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
 
     hiddenWindowsTable->horizontalHeader()->setStyleSheet(
         "QHeaderView::section {"
