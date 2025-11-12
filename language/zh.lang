@@ -20,6 +20,9 @@ Hidden=已隐藏
 Visible=可见
 Minimized=已最小化
 Refresh List=刷新列表
+Class=类
+Process ID=进程ID
+Application=应用程序
 
 ; === 隐藏窗口管理/恢复操作 ===
 Hidden Windows Manager=隐藏窗口管理器
@@ -33,6 +36,9 @@ Restore All Windows=恢复所有窗口
 Restore Window=恢复窗口
 Please select a window to restore=请选择要恢复的窗口
 Would restore: %1=将要恢复: %1
+Restore Last Window=还原上一个窗口
+No hidden windows to restore=没有可恢复的隐藏窗口
+Restored window: %1=已恢复窗口: %1
 
 ; === 快速操作/托盘菜单/右键菜单 ===
 Quick Actions=快速操作
@@ -41,10 +47,15 @@ Open Main Window=打开主窗口
 Exit=退出
 Traynex - Right click for menu=Traynex - 右键点击显示菜单
 Hide to Tray=隐藏到托盘
+Hide to Tray Icon=隐藏到托盘图标
+Hide to Tray Menu=隐藏到托盘菜单
 Restore from Tray=从托盘恢复
 Bring to Front=置顶
 End Task=结束任务
 Highlight Window=高亮窗口
+Always on Top=保持置顶
+Toggle Always on Top=切换置顶状态
+Window hidden to app tray successfully=窗口已成功隐藏到应用托盘
 
 ; === 快捷键/热键信息 ===
 Hotkey=热键
@@ -70,6 +81,7 @@ Hidden Windows=隐藏窗口
 Language:=语言:
 Save Settings=保存设置
 Keep the main window always on top of other windows=保持主窗口始终位于其他窗口的顶部
+Maximum hidden windows:=最大隐藏窗口数:
 
 ; === 错误/警告/成功/提示消息 ===
 Error=错误
@@ -85,6 +97,12 @@ Please select a window to toggle always on top=请选择要切换置顶状态的
 Window hidden to tray successfully=窗口已成功隐藏到托盘
 Failed to hide window to tray=隐藏窗口到托盘失败
 Settings saved successfully!=设置保存成功！
+Cannot get window class name=无法获取窗口类名
+Cannot hide system windows=无法隐藏系统窗口
+Failed to highlight the window=高亮窗口失败
+Failed to toggle window always on top=切换窗口置顶状态失败
+Failed to bring window to front=置顶窗口失败
+Failed to end task=结束任务失败
 
 ; === 关于页面/功能列表/外部链接 ===
 Visit GitHub Repository=访问 GitHub 仓库
@@ -94,3 +112,22 @@ Features:=功能列表:
 Minimize windows to system tray=最小化窗口到系统托盘
 Restore windows with double-click=双击恢复窗口
 Multiple window management=多窗口管理
+A powerful window management tool that allows you to minimize windows to system tray.=一个强大的窗口管理工具，可以将窗口最小化到系统托盘。
+Win + Shift + Z - Minimize active window to tray=Win + Shift + Z - 最小化活动窗口到托盘
+Double-click tray icon to restore window=双击托盘图标恢复窗口
+
+; === 系统托盘相关 ===
+Unknown Window=未知窗口
+System Tray=系统托盘
+Tray Icon=托盘图标
+Tray Menu=托盘菜单
+
+; === 上下文菜单操作 ===
+Copy=复制
+Window Class=窗口类
+Window Name=窗口名称
+Application Path=应用程序路径
+Open File Location=打开文件所在位置
+File Properties=文件属性
+New Rule=新规则
+Flash=高亮

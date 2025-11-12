@@ -20,6 +20,9 @@ Hidden=Hidden
 Visible=Visible
 Minimized=Minimized
 Refresh List=Refresh List
+Class=Class
+Process ID=Process ID
+Application=Application
 
 ; === Hidden Window Management/Restore Operations ===
 Hidden Windows Manager=Hidden Windows Manager
@@ -33,6 +36,9 @@ Restore All Windows=Restore All Windows
 Restore Window=Restore Window
 Please select a window to restore=Please select a window to restore
 Would restore: %1=Would restore: %1
+Restore Last Window=Restore Last Window
+No hidden windows to restore=No hidden windows to restore
+Restored window: %1=Restored window: %1
 
 ; === Quick Actions/Tray Menu/Right-click Menu ===
 Quick Actions=Quick Actions
@@ -41,10 +47,15 @@ Open Main Window=Open Main Window
 Exit=Exit
 Traynex - Right click for menu=Traynex - Right click for menu
 Hide to Tray=Hide to Tray
+Hide to Tray Icon=Hide to Tray Icon
+Hide to Tray Menu=Hide to Tray Menu
 Restore from Tray=Restore from Tray
 Bring to Front=Bring to Front
 End Task=End Task
 Highlight Window=Highlight Window
+Always on Top=Always on Top
+Toggle Always on Top=Toggle Always on Top
+Window hidden to app tray successfully=Window hidden to app tray successfully
 
 ; === Hotkeys/Shortcut Information ===
 Hotkey=Hotkey
@@ -70,6 +81,7 @@ windows=windows
 Hidden Windows=Hidden Windows
 Language:=Language:
 Save Settings=Save Settings
+Maximum hidden windows:=Maximum hidden windows:
 
 ; === Error/Warning/Success/Prompt Messages ===
 Error=Error
@@ -85,6 +97,12 @@ Please select a window to toggle always on top=Please select a window to toggle 
 Window hidden to tray successfully=Window hidden to tray successfully
 Failed to hide window to tray=Failed to hide window to tray
 Settings saved successfully!=Settings saved successfully!
+Cannot get window class name=Cannot get window class name
+Cannot hide system windows=Cannot hide system windows
+Failed to highlight the window=Failed to highlight the window
+Failed to toggle window always on top=Failed to toggle window always on top
+Failed to bring window to front=Failed to bring window to front
+Failed to end task=Failed to end task
 
 ; === About Page/Feature List/External Links ===
 Visit GitHub Repository=Visit GitHub Repository
@@ -94,3 +112,22 @@ Features:=Features:
 Minimize windows to system tray=Minimize windows to system tray
 Restore windows with double-click=Restore windows with double-click
 Multiple window management=Multiple window management
+A powerful window management tool that allows you to minimize windows to system tray.=A powerful window management tool that allows you to minimize windows to system tray.
+Win + Shift + Z - Minimize active window to tray=Win + Shift + Z - Minimize active window to tray
+Double-click tray icon to restore window=Double-click tray icon to restore window
+
+; === System Tray Related ===
+Unknown Window=Unknown Window
+System Tray=System Tray
+Tray Icon=Tray Icon
+Tray Menu=Tray Menu
+
+; === Context Menu Actions ===
+Copy=Copy
+Window Class=Window Class
+Window Name=Window Name
+Application Path=Application Path
+Open File Location=Open File Location
+File Properties=File Properties
+New Rule=New Rule
+Flash=Flash
