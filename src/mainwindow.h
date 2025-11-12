@@ -95,6 +95,7 @@ private:
         HWND hwnd;
         bool isHidden;
         bool isVisible;
+        QIcon icon;
     };
     QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
     QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
