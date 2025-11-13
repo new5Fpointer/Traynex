@@ -83,9 +83,12 @@ private:
     bool isWindowOnTop(HWND hwnd);
     void setWindowOnTop(HWND hwnd, bool onTop);
 
-    void addWindowToTrayMenu(HWND hwnd, const QString& title);
+    void addWindowToTrayMenu(HWND hwnd, const QString& title, const QIcon& icon = QIcon());
     void removeWindowFromTrayMenu(HWND hwnd);
     void updateTrayMenuLayout();
+    void updateTrayMenuIcons();
+    
+    QIcon getWindowIcon(HWND hwnd) const;
 
     struct WindowInfo {
         QString title;

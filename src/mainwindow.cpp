@@ -1641,15 +1641,18 @@ void MainWindow::hideToAppTray()
     GetWindowText(hwnd, title, 256);
     QString windowTitle = QString::fromWCharArray(title);
 
+    // 获取窗口图标
+    QIcon windowIcon = getWindowIcon(hwnd);
+
     // 隐藏窗口
     ShowWindow(hwnd, SW_HIDE);
 
     // 记录隐藏顺序
-    m_hiddenWindowOrder.removeAll(hwnd);  // 先移除（如果已存在）
-    m_hiddenWindowOrder.prepend(hwnd);    // 添加到开头（最近隐藏的）
+    m_hiddenWindowOrder.removeAll(hwnd);  // 先移除
+    m_hiddenWindowOrder.prepend(hwnd);    // 添加到开头
 
-    // 添加到托盘菜单
-    addWindowToTrayMenu(hwnd, windowTitle);
+    // 添加到托盘菜单（带图标）
+    addWindowToTrayMenu(hwnd, windowTitle, windowIcon);
 
     // 刷新显示
     refreshAllLists();
@@ -1659,7 +1662,7 @@ void MainWindow::hideToAppTray()
         trc("MainWindow", "Window hidden to app tray successfully"));
 }
 
-void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title)
+void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIcon& icon)
 {
     if (!trayMenu) {
         qWarning() << "trayMenu is null, cannot add window";
@@ -1676,7 +1679,18 @@ void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title)
         m_appTrayWindows.remove(hwnd);
     }
 
-    // 创建恢复该窗口的动作
+    // 获取或创建图标
+    QIcon windowIcon = icon;
+    if (windowIcon.isNull()) {
+        windowIcon = getWindowIcon(hwnd);
+    }
+
+    // 如果仍然没有图标，使用默认图标
+    if (windowIcon.isNull()) {
+        windowIcon = QApplication::style()->standardIcon(QStyle::SP_ComputerIcon);
+    }
+
+    // 创建显示标题
     QString displayTitle = title;
     if (displayTitle.isEmpty()) {
         displayTitle = trc("MainWindow", "Unknown Window");
@@ -1687,8 +1701,38 @@ void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title)
         displayTitle = displayTitle.left(37) + "...";
     }
 
-    QAction* restoreAction = new QAction(displayTitle, trayMenu);
-    restoreAction->setData(reinterpret_cast<qulonglong>(hwnd));
+    // 创建恢复该窗口的动作
+    QAction* restoreAction = new QAction(windowIcon, displayTitle, trayMenu);
+
+    // 使用 QVariantMap 存储完整窗口信息
+    QVariantMap windowData;
+    windowData["hwnd"] = reinterpret_cast<qulonglong>(hwnd);
+    windowData["title"] = title;
+    windowData["icon"] = windowIcon;
+
+    // 获取进程信息用于显示
+    DWORD processId;
+    GetWindowThreadProcessId(hwnd, &processId);
+    QString processName = "Unknown";
+
+    HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+    if (process) {
+        wchar_t processPath[MAX_PATH] = L"";
+        if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
+            processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
+        }
+        CloseHandle(process);
+    }
+    windowData["processName"] = processName;
+
+    restoreAction->setData(windowData);
+
+    // 设置工具提示显示更详细的信息
+    QString toolTip = QString("%1\nProcess: %2\nHandle: 0x%3")
+        .arg(title)
+        .arg(processName)
+        .arg(QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
+    restoreAction->setToolTip(toolTip);
 
     connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreWindowFromAppTray);
 
@@ -1818,7 +1862,11 @@ void MainWindow::restoreWindowFromAppTray()
         return;
     }
 
-    HWND hwnd = reinterpret_cast<HWND>(action->data().toULongLong());
+    // 从 QVariantMap 中获取窗口信息
+    QVariantMap windowData = action->data().toMap();
+    HWND hwnd = reinterpret_cast<HWND>(windowData["hwnd"].toULongLong());
+    QString title = windowData["title"].toString();
+
     if (!hwnd || !IsWindow(hwnd)) {
         QMessageBox::warning(this, trc("MainWindow", "Warning"),
             trc("MainWindow", "The selected window is no longer available"));
@@ -1840,7 +1888,8 @@ void MainWindow::restoreWindowFromAppTray()
     refreshAllLists();
     updateTrayMenu();
 
-    qDebug() << "Window restored from app tray:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
+    qDebug() << "Window restored from app tray:" << title
+        << "Handle:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
 }
 
 void MainWindow::restoreLastWindow()
@@ -1890,5 +1939,98 @@ void MainWindow::restoreLastWindow()
         m_hiddenWindowOrder.prepend(lastHwnd);
         QMessageBox::warning(this, trc("MainWindow", "Error"),
             trc("MainWindow", "Failed to restore the last window"));
+    }
+}
+
+QIcon MainWindow::getWindowIcon(HWND hwnd) const
+{
+    if (!hwnd || !IsWindow(hwnd)) {
+        return QIcon();
+    }
+
+    QIcon windowIcon;
+
+    // 尝试获取窗口的小图标
+    HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
+
+    // 尝试获取窗口类的小图标
+    if (!hIcon) {
+        hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
+    }
+
+    // 尝试获取窗口的大图标
+    if (!hIcon) {
+        hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0);
+    }
+
+    // 尝试获取窗口类的大图标
+    if (!hIcon) {
+        hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON);
+    }
+
+    // 从进程文件获取图标
+    if (!hIcon) {
+        DWORD processId;
+        GetWindowThreadProcessId(hwnd, &processId);
+
+        if (processId) {
+            HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+            if (hProcess) {
+                wchar_t exePath[MAX_PATH];
+                if (GetModuleFileNameEx(hProcess, NULL, exePath, MAX_PATH)) {
+                    // 提取第一个图标
+                    hIcon = ExtractIcon(GetModuleHandle(NULL), exePath, 0);
+                }
+                CloseHandle(hProcess);
+            }
+        }
+    }
+
+    // 使用默认应用程序图标
+    if (!hIcon) {
+        hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    }
+
+    // 将 HICON 转换为 QIcon
+    if (hIcon) {
+        QPixmap pixmap = QPixmap::fromImage(QImage::fromHICON(hIcon));
+        if (!pixmap.isNull()) {
+            windowIcon = QIcon(pixmap);
+
+            // 清理提取的图标资源
+            if (hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0) &&
+                hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM) &&
+                hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0) &&
+                hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICON) &&
+                hIcon != LoadIcon(NULL, IDI_APPLICATION)) {
+                DestroyIcon(hIcon);
+            }
+        }
+    }
+
+    return windowIcon;
+}
+
+void MainWindow::updateTrayMenuIcons()
+{
+    // 更新所有托盘菜单项的图标
+    for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it) {
+        HWND hwnd = it.key();
+        QAction* action = it.value();
+
+        if (hwnd && IsWindow(hwnd) && action) {
+            // 检查当前图标是否有效
+            if (action->icon().isNull()) {
+                QIcon newIcon = getWindowIcon(hwnd);
+                if (!newIcon.isNull()) {
+                    action->setIcon(newIcon);
+
+                    // 更新存储的数据
+                    QVariantMap windowData = action->data().toMap();
+                    windowData["icon"] = newIcon;
+                    action->setData(windowData);
+                }
+            }
+        }
     }
 }
