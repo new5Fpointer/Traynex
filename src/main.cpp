@@ -3,11 +3,14 @@
 #include <QMessageBox>
 #include <QIcon>
 #include <QDebug>
+#include <QDir>
 #include "mainwindow.h"
 #include "windowstraymanager.h"
 
 int main(int argc, char* argv[])
 {
+    QDir::setCurrent(QCoreApplication::applicationDirPath());
+
     QApplication app(argc, argv);
 
     // 设置应用程序属性

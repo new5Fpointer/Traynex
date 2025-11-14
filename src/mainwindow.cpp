@@ -1004,10 +1004,14 @@ void MainWindow::refreshAllLists()
 
 void MainWindow::loadLanguage(const QString& language)
 {
-    QString langFile = QString("./language/%1.lang").arg(language);
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString langFile = QString("%1/language/%2.lang").arg(appDir).arg(language);
     if (!Translator::instance().loadLanguage(langFile)) {
         // 如果指定语言文件加载失败，尝试加载默认语言
-        Translator::instance().loadLanguage("./language/zh.lang");
+        QString defaultLangFile = QString("%1/language/zh.lang").arg(appDir);
+        if (!Translator::instance().loadLanguage(defaultLangFile)) {
+            qWarning() << "Failed to load default language file:" << defaultLangFile;
+        }
     }
 
     // 重新翻译所有UI文本
