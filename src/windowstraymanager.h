@@ -17,7 +17,6 @@ public:
     void restoreAllWindows();
     bool isInitialized() const { return m_initialized; }
     bool restoreWindow(HWND hwnd);
-    void setHotkeyEnabled(bool enabled);
 
     std::vector<std::pair<HWND, std::wstring>> getHiddenWindows() const;
 
@@ -50,6 +49,4 @@ private:
 
     static constexpr UINT WM_TRAYICON = WM_USER + 101;
     static constexpr int MAX_WINDOWS = 50;
-
-    bool m_hotkeyEnabled = true;
 };

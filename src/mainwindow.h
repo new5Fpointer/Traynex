@@ -1,5 +1,6 @@
 #pragma once
 
+#include "hotkeymanager.h"
 #include <QMainWindow>
 #include <QCloseEvent>
 #include <QSystemTrayIcon>
@@ -18,6 +19,7 @@
 #include <QComboBox>
 #include <QTimer>
 #include <QMap>
+#include <QLineEdit>
 #include <windows.h>
 
 class MainWindow : public QMainWindow
@@ -43,7 +45,6 @@ private slots:
     void onTableContextMenu(const QPoint& pos);
     void bringToFront();
     void endTask();
-    void onHotkeySettingChanged();
     void onRefreshSettingChanged();
     void onLanguageChanged();
     void onStartWithSystemChanged();
@@ -59,9 +60,14 @@ private slots:
     void hideToAppTray();
     void restoreWindowFromAppTray();
     void restoreLastWindow();
+    void onHotkeyTriggered(const QString& id);
+    void startSetMinimizeHotkey();
+    void clearMinimizeHotkey();
+    void updateMinimizeHotkeyDisplay();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
+    bool eventFilter(QObject* obj, QEvent* event) override;
 
 private:
     void createTrayIcon();
@@ -87,6 +93,13 @@ private:
     void removeWindowFromTrayMenu(HWND hwnd);
     void updateTrayMenuLayout();
     void updateTrayMenuIcons();
+
+    void setupHotkeys();
+    void saveHotkeySettings();
+    void loadHotkeySettings();
+
+    void finishHotkeySetting(const QString& keySequence);
+    void cancelHotkeySetting();
 
     QIcon getWindowIcon(HWND hwnd) const;
 
@@ -139,6 +152,8 @@ private:
     QComboBox* languageCombo;
     QPushButton* saveSettingsButton;
     QCheckBox* alwaysOnTopCheck;
+    QLineEdit* minimizeHotkeyEdit;
+    QPushButton* setMinimizeHotkeyButton;
 
     // 关于页面组件
     QLabel* aboutLabel;
@@ -157,4 +172,8 @@ private:
 
     QCheckBox* autoRefreshCheck;
     QSpinBox* refreshIntervalSpin;
+
+    // 热键设置状态
+    bool m_settingHotkey = false;
+    QString m_currentHotkeyId;
 };

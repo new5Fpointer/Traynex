@@ -23,6 +23,8 @@ set(PROJECT_SOURCES
     src/translator.cpp
     src/windowstraymanager.h
     src/windowstraymanager.cpp
+    src/hotkeymanager.h
+    src/hotkeymanager.cpp
     resource.qrc
     icon.rc
 )

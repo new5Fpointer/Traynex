@@ -68,11 +68,6 @@ bool WindowsTrayManager::initialize()
         return false;
     }
 
-    // 注册热键 Win+Shift+Z
-    if (!RegisterHotKey(m_mainWindow, 1, MOD_WIN | MOD_SHIFT | MOD_NOREPEAT, 0x5A)) { // 0x5A = 'Z'
-        // 热键注册失败不是致命错误，继续初始化
-    }
-
     // 恢复之前隐藏的窗口
     restoreHiddenWindows();
 
@@ -88,11 +83,6 @@ void WindowsTrayManager::shutdown()
 
     // 恢复所有隐藏的窗口
     restoreAllWindows();
-
-    // 注销热键
-    if (m_mainWindow) {
-        UnregisterHotKey(m_mainWindow, 1);
-    }
 
     if (m_mainWindow) {
         DestroyWindow(m_mainWindow);
@@ -277,31 +267,22 @@ LRESULT CALLBACK WindowsTrayManager::windowProc(HWND hwnd, UINT uMsg, WPARAM wPa
     }
 
     switch (uMsg) {
-    case WM_HOTKEY:
-        if (wParam == 1 && manager->m_hotkeyEnabled) { 
-            HWND foregroundWindow = GetForegroundWindow();
-            if (foregroundWindow && foregroundWindow != hwnd) {
-                manager->minimizeWindowToTray(foregroundWindow);
+        case WM_TRAYICON:
+            if (lParam == WM_LBUTTONDBLCLK) {
+                // 双击恢复窗口
+                manager->showWindowFromTray(static_cast<UINT>(wParam));
             }
-        }
-        break;
+            break;
 
-    case WM_TRAYICON:
-        if (lParam == WM_LBUTTONDBLCLK) {
-            // 双击恢复窗口
-            manager->showWindowFromTray(static_cast<UINT>(wParam));
-        }
-        break;
+        case WM_COMMAND:
+            break;
 
-    case WM_COMMAND:
-        break;
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            break;
 
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
-
-    default:
-        return DefWindowProc(hwnd, uMsg, wParam, lParam);
+        default:
+            return DefWindowProc(hwnd, uMsg, wParam, lParam);
     }
 
     return 0;
@@ -339,22 +320,6 @@ bool WindowsTrayManager::restoreWindow(HWND hwnd)
     emit trayWindowsChanged();
 
     return true;
-}
-
-void WindowsTrayManager::setHotkeyEnabled(bool enabled)
-{
-    m_hotkeyEnabled = enabled;
-
-    if (m_mainWindow) {
-        if (enabled) {
-            // 注册热键
-            RegisterHotKey(m_mainWindow, 1, MOD_WIN | MOD_SHIFT | MOD_NOREPEAT, 0x5A);
-        }
-        else {
-            // 注销热键
-            UnregisterHotKey(m_mainWindow, 1);
-        }
-    }
 }
 
 void WindowsTrayManager::showWindowFromTray(UINT iconId)

@@ -39,6 +39,8 @@ MainWindow::MainWindow(QWidget* parent)
     , hideToAppTrayAction(nullptr)
     , restoreLastAction(nullptr)
 {
+    setupHotkeys();
+
     // 创建 UI
     setupUI();
     setupConnections();
@@ -80,6 +82,7 @@ MainWindow::MainWindow(QWidget* parent)
 MainWindow::~MainWindow()
 {
     WindowsTrayManager::instance().shutdown();
+    setupHotkeys();
 }
 
 void MainWindow::setupUI()
@@ -281,6 +284,29 @@ void MainWindow::setupUI()
     languageCombo->addItem("English", "en");
     languageCombo->addItem("中文", "zh");
 
+    // 热键设置组
+    QGroupBox* hotkeyGroup = new QGroupBox(trc("MainWindow", "Hotkey Settings"));
+    QFormLayout* hotkeyLayout = new QFormLayout(hotkeyGroup);
+
+    // 最小化热键设置
+    minimizeHotkeyEdit = new QLineEdit();
+    minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Click to set hotkey"));
+    minimizeHotkeyEdit->setReadOnly(true);
+
+    setMinimizeHotkeyButton = new QPushButton(trc("MainWindow", "Set Hotkey"));
+    QPushButton* clearMinimizeHotkeyButton = new QPushButton(trc("MainWindow", "Clear"));
+
+    QHBoxLayout* minimizeHotkeyLayout = new QHBoxLayout();
+    minimizeHotkeyLayout->addWidget(minimizeHotkeyEdit);
+    minimizeHotkeyLayout->addWidget(setMinimizeHotkeyButton);
+    minimizeHotkeyLayout->addWidget(clearMinimizeHotkeyButton);
+
+    hotkeyLayout->addRow(trc("MainWindow", "Minimize to Tray:"), minimizeHotkeyLayout);
+
+    // 连接信号
+    connect(setMinimizeHotkeyButton, &QPushButton::clicked, this, &MainWindow::startSetMinimizeHotkey);
+    connect(clearMinimizeHotkeyButton, &QPushButton::clicked, this, &MainWindow::clearMinimizeHotkey);
+
     // 创建表单标签并设置对象名称
     QLabel* maxWindowsLabel = new QLabel(trc("MainWindow", "Maximum hidden windows:"));
     maxWindowsLabel->setObjectName("maxWindowsLabel");
@@ -294,6 +320,7 @@ void MainWindow::setupUI()
     settingsLayout->addWidget(generalGroup);
     settingsLayout->addWidget(refreshGroup);
     settingsLayout->addWidget(windowGroup);
+    settingsLayout->addWidget(hotkeyGroup);
     settingsLayout->addStretch();
 
     // === 关于页面 ===
@@ -353,7 +380,6 @@ void MainWindow::setupUI()
 
 void MainWindow::setupConnections()
 {
-    connect(enableHotkeyCheck, &QCheckBox::stateChanged, this, &MainWindow::onHotkeySettingChanged);
     connect(autoRefreshCheck, &QCheckBox::stateChanged, this, &MainWindow::onRefreshSettingChanged);
     connect(refreshIntervalSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onRefreshSettingChanged);
     connect(languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onLanguageChanged);
@@ -588,7 +614,6 @@ void MainWindow::loadSettings()
     refreshIntervalSpin->setValue(refreshInterval);
 
     // 应用加载的设置
-    onHotkeySettingChanged();     // 应用热键设置
     onRefreshSettingChanged();    // 应用刷新设置
     onAlwaysOnTopChanged();       // 应用置顶设置
 
@@ -884,7 +909,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
         if (processId == currentProcessId) {
             return TRUE;
         }
-		// 3.标题非空
+        // 3.标题非空
         LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
         if (exStyle & WS_EX_TOOLWINDOW) {
             return TRUE;
@@ -893,7 +918,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
         if (GetProp(hwnd, L"ITaskList_Deleted")) {
             return TRUE;
         }
-		// 5.所有者关系和可激活性
+        // 5.所有者关系和可激活性
         HWND owner = GetWindow(hwnd, GW_OWNER);
         bool hasOwner = (owner != nullptr);
         bool isAppWindow = (exStyle & WS_EX_APPWINDOW);
@@ -1158,19 +1183,6 @@ void MainWindow::retranslateUI()
     refreshWindowsTable();
 }
 
-void MainWindow::onHotkeySettingChanged()
-{
-    bool enabled = enableHotkeyCheck->isChecked();
-
-    // 立即应用热键设置
-    WindowsTrayManager::instance().setHotkeyEnabled(enabled);
-
-    qDebug() << "Hotkey setting changed:" << enabled;
-
-    // 自动保存设置
-    QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
-}
-
 void MainWindow::onRefreshSettingChanged()
 {
     bool autoRefresh = autoRefreshCheck->isChecked();
@@ -1245,6 +1257,7 @@ void MainWindow::onMaxWindowsChanged()
 void MainWindow::autoSaveSettings()
 {
     saveSettings();
+    saveHotkeySettings();
     qDebug() << "Settings auto-saved";
 }
 
@@ -2069,4 +2082,184 @@ void MainWindow::updateTrayMenuIcons()
             }
         }
     }
+}
+
+void MainWindow::setupHotkeys()
+{
+    // 连接热键信号
+    connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyTriggered,
+        this, &MainWindow::onHotkeyTriggered);
+
+    // 加载保存的热键设置
+    loadHotkeySettings();
+}
+
+void MainWindow::loadHotkeySettings()
+{
+    QSettings settings(getConfigPath(), QSettings::IniFormat);
+
+    settings.beginGroup("Hotkeys");
+
+    // 加载最小化热键（默认 Win+Shift+Z）
+    QString minimizeKey = settings.value("minimize_active", "Win+Shift+Z").toString();
+    QKeySequence minimizeSequence = QKeySequence::fromString(minimizeKey);
+
+    if (!minimizeSequence.isEmpty()) {
+        HotkeyManager::instance().registerHotkey("minimize_active", minimizeSequence);
+    }
+
+    settings.endGroup();
+}
+
+void MainWindow::saveHotkeySettings()
+{
+    QSettings settings(getConfigPath(), QSettings::IniFormat);
+
+    settings.beginGroup("Hotkeys");
+
+    // 保存所有热键
+    auto hotkeys = HotkeyManager::instance().getAllHotkeys();
+    for (auto it = hotkeys.begin(); it != hotkeys.end(); ++it) {
+        settings.setValue(it.key(), it.value().toString());
+    }
+
+    settings.endGroup();
+}
+
+void MainWindow::onHotkeyTriggered(const QString& id)
+{
+    qDebug() << "emit:" << id;
+    if (id == "minimize_active") {
+        minimizeActiveToTray();
+    }
+    // 可以添加更多热键处理
+    else if (id == "show_window") {
+        showWindow();
+    }
+}
+
+void MainWindow::startSetMinimizeHotkey()
+{
+    if (m_settingHotkey) {
+        return; // 已经在设置中
+    }
+
+    m_settingHotkey = true;
+    m_currentHotkeyId = "minimize_active";
+
+    // 改变UI状态提示用户
+    minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Press key combination..."));
+    minimizeHotkeyEdit->setText("");
+    setMinimizeHotkeyButton->setText(trc("MainWindow", "Press Keys Now"));
+    setMinimizeHotkeyButton->setEnabled(false);
+
+    // 安装事件过滤器来捕获按键
+    qApp->installEventFilter(this);
+
+    // 设置超时取消
+    QTimer::singleShot(10000, this, [this]() {
+        if (m_settingHotkey) {
+            cancelHotkeySetting();
+        }
+        });
+}
+
+void MainWindow::clearMinimizeHotkey()
+{
+    // 注销热键
+    HotkeyManager::instance().unregisterHotkey("minimize_active");
+
+    // 更新显示
+    minimizeHotkeyEdit->setText("");
+    minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "No hotkey set"));
+
+    // 保存设置
+    saveHotkeySettings();
+}
+
+void MainWindow::updateMinimizeHotkeyDisplay()
+{
+    auto hotkeys = HotkeyManager::instance().getAllHotkeys();
+    if (hotkeys.contains("minimize_active")) {
+        minimizeHotkeyEdit->setText(hotkeys["minimize_active"].toString());
+    }
+    else {
+        minimizeHotkeyEdit->setText("");
+        minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "No hotkey set"));
+    }
+}
+
+// 事件过滤器来捕获按键
+bool MainWindow::eventFilter(QObject* obj, QEvent* event)
+{
+    if (m_settingHotkey && event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+
+        // 忽略单个修饰键的按下
+        if (keyEvent->key() == Qt::Key_Control ||
+            keyEvent->key() == Qt::Key_Shift ||
+            keyEvent->key() == Qt::Key_Alt ||
+            keyEvent->key() == Qt::Key_Meta) {
+            return QMainWindow::eventFilter(obj, event);
+        }
+
+        // 创建键序列
+        QKeySequence keySequence(keyEvent->key() | keyEvent->modifiers());
+
+        // 尝试注册热键
+        if (HotkeyManager::instance().registerHotkey(m_currentHotkeyId, keySequence)) {
+            // 成功
+            finishHotkeySetting(keySequence.toString());
+        }
+        else {
+            // 失败
+            QMessageBox::warning(this, trc("MainWindow", "Error"),
+                trc("MainWindow", "Failed to register hotkey. It may be already in use."));
+            cancelHotkeySetting();
+        }
+
+        return true; // 事件已处理
+    }
+
+    return QMainWindow::eventFilter(obj, event);
+}
+
+void MainWindow::finishHotkeySetting(const QString& keySequence)
+{
+    m_settingHotkey = false;
+    m_currentHotkeyId.clear();
+
+    // 移除事件过滤器
+    qApp->removeEventFilter(this);
+
+    // 恢复UI状态
+    setMinimizeHotkeyButton->setText(trc("MainWindow", "Set Hotkey"));
+    setMinimizeHotkeyButton->setEnabled(true);
+
+    // 更新显示
+    updateMinimizeHotkeyDisplay();
+
+    // 保存设置
+    saveHotkeySettings();
+
+    QMessageBox::information(this, trc("MainWindow", "Success"),
+        trc("MainWindow", "Hotkey set successfully: %1").arg(keySequence));
+}
+
+void MainWindow::cancelHotkeySetting()
+{
+    m_settingHotkey = false;
+    m_currentHotkeyId.clear();
+
+    // 移除事件过滤器
+    qApp->removeEventFilter(this);
+
+    // 恢复UI状态
+    setMinimizeHotkeyButton->setText(trc("MainWindow", "Set Hotkey"));
+    setMinimizeHotkeyButton->setEnabled(true);
+
+    // 恢复显示
+    updateMinimizeHotkeyDisplay();
+
+    minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Hotkey setting cancelled"));
 }
