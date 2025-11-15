@@ -855,6 +855,7 @@ void MainWindow::refreshWindowsTable()
 QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 {
     QList<QPair<HWND, WindowInfo>> windows;
+    DWORD currentProcessId = GetCurrentProcessId();
 
     // 获取所有隐藏窗口
     auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
@@ -865,6 +866,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 
     EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
         auto windowsList = reinterpret_cast<QList<QPair<HWND, WindowInfo>>*>(lParam);
+        DWORD currentProcessId = GetCurrentProcessId();
 
         // 获取窗口标题
         wchar_t title[256];
@@ -872,21 +874,51 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
         QString windowTitle = QString::fromWCharArray(title);
 
         // 过滤条件
-        if (windowTitle.isEmpty() ||
-            windowTitle == "Program Manager" ||
-            !IsWindowVisible(hwnd)) {
+        // 1.窗口有效性
+        if (!IsWindow(hwnd) || !IsWindowVisible(hwnd)) {
+            return TRUE;
+        }
+        // 2.非自身进程
+        DWORD processId;
+        GetWindowThreadProcessId(hwnd, &processId);
+        if (processId == currentProcessId) {
+            return TRUE;
+        }
+		// 3.标题非空
+        LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        if (exStyle & WS_EX_TOOLWINDOW) {
+            return TRUE;
+        }
+        // 4.非删除标记
+        if (GetProp(hwnd, L"ITaskList_Deleted")) {
+            return TRUE;
+        }
+		// 5.所有者关系和可激活性
+        HWND owner = GetWindow(hwnd, GW_OWNER);
+        bool hasOwner = (owner != nullptr);
+        bool isAppWindow = (exStyle & WS_EX_APPWINDOW);
+
+        if (hasOwner && !isAppWindow) {
             return TRUE;
         }
 
-        // 获取窗口类名
+        if ((exStyle & WS_EX_NOACTIVATE) && !isAppWindow) {
+            return TRUE;
+        }
+        
         wchar_t className[256];
         GetClassName(hwnd, className, 256);
         QString windowClass = QString::fromWCharArray(className);
 
-        // 获取进程名
-        DWORD processId;
-        GetWindowThreadProcessId(hwnd, &processId);
+        // 6.Application Frame Window 检查
+        if (windowClass == "ApplicationFrameWindow" ||
+            windowClass == "Windows.UI.Core.CoreWindow" ||
+            windowClass == "StartMenuSizingFrame" ||
+            windowClass == "Shell_LightDismissOverlay") {
+            return TRUE;
+        }
 
+        // 获取进程名
         HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
         wchar_t processName[MAX_PATH] = L"";
         QString processNameStr = "Unknown";

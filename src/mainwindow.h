@@ -87,7 +87,7 @@ private:
     void removeWindowFromTrayMenu(HWND hwnd);
     void updateTrayMenuLayout();
     void updateTrayMenuIcons();
-    
+
     QIcon getWindowIcon(HWND hwnd) const;
 
     struct WindowInfo {
