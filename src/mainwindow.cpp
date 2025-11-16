@@ -286,6 +286,7 @@ void MainWindow::setupUI()
 
     // 热键设置组
     QGroupBox* hotkeyGroup = new QGroupBox(trc("MainWindow", "Hotkey Settings"));
+    hotkeyGroup->setObjectName("hotkeyGroup");
     QFormLayout* hotkeyLayout = new QFormLayout(hotkeyGroup);
 
     // 最小化热键设置
@@ -295,13 +296,17 @@ void MainWindow::setupUI()
 
     setMinimizeHotkeyButton = new QPushButton(trc("MainWindow", "Set Hotkey"));
     QPushButton* clearMinimizeHotkeyButton = new QPushButton(trc("MainWindow", "Clear"));
+    clearMinimizeHotkeyButton->setObjectName("clearMinimizeHotkeyButton");
 
     QHBoxLayout* minimizeHotkeyLayout = new QHBoxLayout();
     minimizeHotkeyLayout->addWidget(minimizeHotkeyEdit);
     minimizeHotkeyLayout->addWidget(setMinimizeHotkeyButton);
     minimizeHotkeyLayout->addWidget(clearMinimizeHotkeyButton);
 
-    hotkeyLayout->addRow(trc("MainWindow", "Minimize to Tray:"), minimizeHotkeyLayout);
+    QLabel* minimizeHotkeyLabel = new QLabel(trc("MainWindow", "Minimize to Tray:"));
+    minimizeHotkeyLabel->setObjectName("minimizeHotkeyLabel");
+
+    hotkeyLayout->addRow(minimizeHotkeyLabel, minimizeHotkeyLayout);
 
     // 连接信号
     connect(setMinimizeHotkeyButton, &QPushButton::clicked, this, &MainWindow::startSetMinimizeHotkey);
@@ -1176,6 +1181,25 @@ void MainWindow::retranslateUI()
         restoreHiddenAction->setText(trc("MainWindow", "Restore Window"));
         restoreLastHiddenAction->setText(trc("MainWindow", "Restore Last Window"));
         restoreAllHiddenAction->setText(trc("MainWindow", "Restore All Windows"));
+    }
+
+    // 热键设置组标题
+    if (auto hotkeyGroup = findChild<QGroupBox*>("hotkeyGroup")) {
+        hotkeyGroup->setTitle(trc("MainWindow", "Hotkey Settings"));
+    }
+
+    // 热键标签
+    if (auto minimizeHotkeyLabel = findChild<QLabel*>("minimizeHotkeyLabel")) {
+        minimizeHotkeyLabel->setText(trc("MainWindow", "Minimize to Tray:"));
+    }
+
+    // 更新热键相关控件
+    setMinimizeHotkeyButton->setText(trc("MainWindow", "Set Hotkey"));
+    minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Click to set hotkey"));
+
+    // 清除按钮
+    if (auto clearButton = findChild<QPushButton*>("clearMinimizeHotkeyButton")) {
+        clearButton->setText(trc("MainWindow", "Clear"));
     }
 
     // 刷新表格内容
