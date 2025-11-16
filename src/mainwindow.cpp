@@ -2128,7 +2128,6 @@ void MainWindow::saveHotkeySettings()
 
 void MainWindow::onHotkeyTriggered(const QString& id)
 {
-    qDebug() << "emit:" << id;
     if (id == "minimize_active") {
         minimizeActiveToTray();
     }

@@ -88,20 +88,12 @@ LRESULT CALLBACK HotkeyManager::hotkeyWndProc(HWND hwnd, UINT uMsg, WPARAM wPara
         manager = reinterpret_cast<HotkeyManager*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
     }
 
-    if (manager) {
-        if (uMsg == WM_HOTKEY) {
-            qDebug() << "WM_HOTKEY received - wParam:" << wParam << "lParam:" << lParam;
-
-            QString hotkeyId = manager->m_idToHotkey.value(wParam);
-            if (!hotkeyId.isEmpty()) {
-                qDebug() << "Hotkey triggered:" << hotkeyId;
-                emit manager->hotkeyTriggered(hotkeyId);
-            }
-            else {
-                qWarning() << "Unknown hotkey ID:" << wParam;
-            }
-            return 0;
+    if (manager && uMsg == WM_HOTKEY) {
+        QString hotkeyId = manager->m_idToHotkey.value(wParam);
+        if (!hotkeyId.isEmpty()) {
+            emit manager->hotkeyTriggered(hotkeyId);
         }
+        return 0;
     }
 
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -226,27 +218,20 @@ bool HotkeyManager::registerHotkey(const QString& id, const QKeySequence& keySeq
         return false;
     }
 
-    qDebug() << "Registering hotkey - ID:" << id
-        << "Sequence:" << keySequence.toString()
-        << "Modifiers:" << modifiers
-        << "Key:" << key;
-
     int hotkeyId = m_nextHotkeyId++;
     if (RegisterHotKey(m_hotkeyWindow, hotkeyId, modifiers | MOD_NOREPEAT, key)) {
         m_hotkeyIds[id] = hotkeyId;
         m_idToHotkey[hotkeyId] = id;
         m_hotkeys[id] = keySequence;
-        qDebug() << "Hotkey registered successfully:" << id << "=" << keySequence.toString();
+        qDebug() << "Hotkey registered:" << id << "=" << keySequence.toString();
         return true;
     }
     else {
-        DWORD error = GetLastError();
-        qWarning() << "Failed to register hotkey:" << id
-            << "Error code:" << error
-            << "Sequence:" << keySequence.toString();
+        qWarning() << "Failed to register hotkey:" << id << "=" << keySequence.toString();
         return false;
     }
 }
+
 bool HotkeyManager::unregisterHotkey(const QString& id)
 {
     if (!m_hotkeyIds.contains(id)) {
