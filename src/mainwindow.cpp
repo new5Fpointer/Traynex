@@ -22,6 +22,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QThread>
+#include <QWidgetAction>
 #include <psapi.h>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -687,16 +688,33 @@ void MainWindow::createContextMenu()
     bringToFrontAction = new QAction(trc("MainWindow", "Bring to Front"), this);
     highlightAction = new QAction(trc("MainWindow", "Highlight Window"), this);
     toggleOnTopAction = new QAction(trc("MainWindow", "Always on Top"), this);
+    opacityMenu = new QMenu(trc("MainWindow", "Opacity"), contextMenu);
+    opacitySlider = new QSlider(Qt::Horizontal);
+    opacityLabel = new QLabel;
     endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
 
     toggleOnTopAction->setCheckable(true);
+
+    opacitySlider->setRange(10, 20);
+    opacitySlider->setValue(20);
+    opacityLabel->setText("100%");
 
     connect(hideToTrayAction, &QAction::triggered, this, &MainWindow::hideSelectedToTray);
     connect(hideToAppTrayAction, &QAction::triggered, this, &MainWindow::hideToAppTray);
     connect(bringToFrontAction, &QAction::triggered, this, &MainWindow::bringToFront);
     connect(highlightAction, &QAction::triggered, this, &MainWindow::highlightWindow);
     connect(toggleOnTopAction, &QAction::triggered, this, &MainWindow::toggleWindowOnTop);
+    connect(opacitySlider, &QSlider::valueChanged,this, &MainWindow::onOpacitySliderChanged);
     connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
+
+    auto* sliderAction = new QWidgetAction(opacityMenu);
+    auto* sliderWidget = new QWidget;
+    auto* hLay = new QHBoxLayout(sliderWidget);
+    hLay->addWidget(opacitySlider, 1);
+    hLay->addWidget(opacityLabel);
+    hLay->setContentsMargins(6, 2, 6, 2);
+    sliderAction->setDefaultWidget(sliderWidget);
+    opacityMenu->addAction(sliderAction);
 
     contextMenu->addAction(hideToTrayAction);
     contextMenu->addAction(hideToAppTrayAction);
@@ -704,6 +722,7 @@ void MainWindow::createContextMenu()
     contextMenu->addAction(bringToFrontAction);
     contextMenu->addAction(highlightAction);
     contextMenu->addAction(toggleOnTopAction);
+    contextMenu->addMenu(opacityMenu);
     contextMenu->addSeparator();
     contextMenu->addAction(endTaskAction);
 }
@@ -765,6 +784,14 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
     endTaskAction->setEnabled(true);
 
     toggleOnTopAction->setChecked(isOnTop);
+
+    if (row >= 0) {
+        HWND hwnd = reinterpret_cast<HWND>(windowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
+        BYTE curAlpha = 255;
+        if (hwnd && IsWindow(hwnd))
+            GetLayeredWindowAttributes(hwnd, nullptr, &curAlpha, nullptr);
+        opacitySlider->setValue(curAlpha * 20 / 255);
+    }
 
     // 显示菜单
     contextMenu->exec(windowsTable->viewport()->mapToGlobal(pos));
@@ -2287,4 +2314,22 @@ void MainWindow::cancelHotkeySetting()
     updateMinimizeHotkeyDisplay();
 
     minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Hotkey setting cancelled"));
+}
+
+void MainWindow::onOpacitySliderChanged(int val)
+{
+    int row = windowsTable->currentRow();
+    if (row < 0) return;
+
+    HWND hwnd = reinterpret_cast<HWND>(windowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
+    if (!hwnd || !IsWindow(hwnd)) return;
+
+    BYTE alpha = static_cast<BYTE>(25 + (val - 10) * 23);
+    opacityLabel->setText(QString("%1%").arg(10 + (val - 10) * 10));
+
+    LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+    if (!(exStyle & WS_EX_LAYERED))
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
+
+    SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
 }

@@ -64,6 +64,7 @@ private slots:
     void startSetMinimizeHotkey();
     void clearMinimizeHotkey();
     void updateMinimizeHotkeyDisplay();
+    void onOpacitySliderChanged(int value);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -134,7 +135,13 @@ private:
     QAction* bringToFrontAction;
     QAction* highlightAction;
     QAction* toggleOnTopAction;
+    QAction* opacityAction;
     QAction* endTaskAction;
+
+    // 音量子控件
+    QMenu* opacityMenu;
+    QSlider* opacitySlider;
+    QLabel* opacityLabel;
 
     // 隐藏窗口页面组件
     QTableWidget* hiddenWindowsTable;
