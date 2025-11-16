@@ -236,11 +236,11 @@ void MainWindow::setupUI()
 
     // 常规设置
     QGroupBox* generalGroup = new QGroupBox(trc("MainWindow", "General Settings"));
-    generalGroup->setObjectName("generalGroup"); // 设置对象名称
+    generalGroup->setObjectName("generalGroup");
     QVBoxLayout* generalLayout = new QVBoxLayout(generalGroup);
 
     startWithSystemCheck = new QCheckBox(trc("MainWindow", "Start with Windows"));
-    enableHotkeyCheck = new QCheckBox(trc("MainWindow", "Enable Hotkey (Win+Shift+Z)"));
+    enableHotkeyCheck = new QCheckBox(trc("MainWindow", "Enable Hotkey"));
     enableHotkeyCheck->setChecked(true);
 
     alwaysOnTopCheck = new QCheckBox(trc("MainWindow", "Always on Top"));
@@ -252,7 +252,7 @@ void MainWindow::setupUI()
 
     // 自动刷新设置
     QGroupBox* refreshGroup = new QGroupBox(trc("MainWindow", "Auto Refresh Settings"));
-    refreshGroup->setObjectName("refreshGroup"); // 设置对象名称
+    refreshGroup->setObjectName("refreshGroup");
     QFormLayout* refreshLayout = new QFormLayout(refreshGroup);
 
     refreshIntervalSpin = new QSpinBox();
@@ -1100,13 +1100,13 @@ void MainWindow::retranslateUI()
         });
 
 
-    // 更新标签页标题
+    // 标签页标题
     tabWidget->setTabText(0, trc("MainWindow", "Main"));
     tabWidget->setTabText(1, trc("MainWindow", "Hidden Windows"));
     tabWidget->setTabText(2, trc("MainWindow", "Settings"));
     tabWidget->setTabText(3, trc("MainWindow", "About"));
 
-    // 更新托盘菜单
+    // 托盘菜单
     if (trayIcon) {
         showAction->setText(trc("MainWindow", "Open Main Window"));
         restoreLastAction->setText(trc("MainWindow", "Restore Last Window"));
@@ -1114,9 +1114,9 @@ void MainWindow::retranslateUI()
         quitAction->setText(trc("MainWindow", "Exit"));
         trayIcon->setToolTip(trc("MainWindow", "Traynex - Right click for menu"));
     }
-    // 更新动态菜单布局
+    // 更动态菜单布局
     updateTrayMenuLayout();
-    // 更新设置页面
+    // 设置页面
     // 组标题
     if (auto generalGroup = findChild<QGroupBox*>("generalGroup")) {
         generalGroup->setTitle(trc("MainWindow", "General Settings"));
@@ -1130,7 +1130,7 @@ void MainWindow::retranslateUI()
 
     // 复选框和标签
     startWithSystemCheck->setText(trc("MainWindow", "Start with Windows"));
-    enableHotkeyCheck->setText(trc("MainWindow", "Enable Hotkey (Win+Shift+Z)"));
+    enableHotkeyCheck->setText(trc("MainWindow", "Enable Hotkey"));
     autoRefreshCheck->setText(trc("MainWindow", "Enable auto refresh"));
     alwaysOnTopCheck->setText(trc("MainWindow", "Always on Top"));
 
@@ -1145,7 +1145,7 @@ void MainWindow::retranslateUI()
         languageLabel->setText(trc("MainWindow", "Language:"));
     }
 
-    // 更新关于页面
+    // 关于页面
     if (auto aboutTitle = findChild<QLabel*>("aboutTitle")) {
         aboutTitle->setText(trc("MainWindow", "About"));
     }
@@ -1161,7 +1161,7 @@ void MainWindow::retranslateUI()
     // 更新关于文本
     showAbout();
 
-    // 更新右键菜单
+    // 右键菜单
     if (contextMenu) {
         hideToTrayAction->setText(trc("MainWindow", "Hide to Tray Icon"));
         hideToAppTrayAction->setText(trc("MainWindow", "Hide to Tray Menu"));
@@ -1171,13 +1171,12 @@ void MainWindow::retranslateUI()
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
 
-    // 更新隐藏窗口表格右键菜单
+    // 隐藏窗口表格右键菜单
     if (hiddenTableContextMenu) {
         restoreHiddenAction->setText(trc("MainWindow", "Restore Window"));
-        restoreLastHiddenAction->setText(trc("MainWindow", "Restore Last Window"));  // 新增
+        restoreLastHiddenAction->setText(trc("MainWindow", "Restore Last Window"));
         restoreAllHiddenAction->setText(trc("MainWindow", "Restore All Windows"));
     }
-
 
     // 刷新表格内容
     refreshWindowsTable();
