@@ -39,11 +39,11 @@ MainWindow::MainWindow(QWidget* parent)
     , hideToAppTrayAction(nullptr)
     , restoreLastAction(nullptr)
 {
-    setupHotkeys();
-
     // 创建 UI
     setupUI();
     setupConnections();
+
+    setupHotkeys();
 
     connect(&WindowsTrayManager::instance(), &WindowsTrayManager::trayWindowsChanged,
         this, &MainWindow::updateTrayMenu);
@@ -473,6 +473,9 @@ void MainWindow::minimizeActiveToTray()
     HWND foregroundWindow = GetForegroundWindow();
     if (foregroundWindow && foregroundWindow != (HWND)winId()) {
         if (WindowsTrayManager::instance().minimizeWindowToTray(foregroundWindow)) {
+            m_hiddenWindowOrder.removeAll(foregroundWindow);
+            m_hiddenWindowOrder.prepend(foregroundWindow);
+
             refreshAllLists();
             updateTrayMenu();
         }
@@ -2120,10 +2123,8 @@ void MainWindow::setupHotkeys()
 void MainWindow::loadHotkeySettings()
 {
     QSettings settings(getConfigPath(), QSettings::IniFormat);
-
     settings.beginGroup("Hotkeys");
 
-    // 加载最小化热键（默认 Win+Shift+Z）
     QString minimizeKey = settings.value("minimize_active", "Win+Shift+Z").toString();
     QKeySequence minimizeSequence = QKeySequence::fromString(minimizeKey);
 
@@ -2132,6 +2133,8 @@ void MainWindow::loadHotkeySettings()
     }
 
     settings.endGroup();
+
+    updateMinimizeHotkeyDisplay();
 }
 
 void MainWindow::saveHotkeySettings()
