@@ -303,7 +303,7 @@ void MainWindow::setupUI()
     minimizeHotkeyLayout->addWidget(setMinimizeHotkeyButton);
     minimizeHotkeyLayout->addWidget(clearMinimizeHotkeyButton);
 
-    QLabel* minimizeHotkeyLabel = new QLabel(trc("MainWindow", "Minimize to Tray:"));
+    QLabel* minimizeHotkeyLabel = new QLabel(trc("MainWindow", "Minimize to Tray Icon:"));
     minimizeHotkeyLabel->setObjectName("minimizeHotkeyLabel");
 
     hotkeyLayout->addRow(minimizeHotkeyLabel, minimizeHotkeyLayout);
@@ -1190,7 +1190,7 @@ void MainWindow::retranslateUI()
 
     // 热键标签
     if (auto minimizeHotkeyLabel = findChild<QLabel*>("minimizeHotkeyLabel")) {
-        minimizeHotkeyLabel->setText(trc("MainWindow", "Minimize to Tray:"));
+        minimizeHotkeyLabel->setText(trc("MainWindow", "Minimize to Tray Icon:"));
     }
 
     // 更新热键相关控件
