@@ -1,6 +1,5 @@
 #pragma once
 
-#include "hotkeymanager.h"
 #include <QMainWindow>
 #include <QCloseEvent>
 #include <QSystemTrayIcon>
@@ -102,6 +101,8 @@ private:
     void finishHotkeySetting(const QString& keySequence);
     void cancelHotkeySetting();
 
+    void toggleMuteWindow();
+
     QIcon getWindowIcon(HWND hwnd) const;
 
     struct WindowInfo {
@@ -135,6 +136,7 @@ private:
     QAction* bringToFrontAction;
     QAction* highlightAction;
     QAction* toggleOnTopAction;
+    QAction* muteAction;
     QAction* opacityAction;
     QAction* endTaskAction;
 

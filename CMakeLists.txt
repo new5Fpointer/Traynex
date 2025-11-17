@@ -25,11 +25,13 @@ set(PROJECT_SOURCES
     src/windowstraymanager.cpp
     src/hotkeymanager.h
     src/hotkeymanager.cpp
+    src/volumecontrol.h
+    src/volumecontrol.cpp
     resource.qrc
     icon.rc
 )
 
-set(WIN32_LIBS shell32 user32 psapi)
+set(WIN32_LIBS shell32 user32 psapi ole32 oleaut32)
 
 qt_add_resources(QT_RESOURCES
     resource.qrc

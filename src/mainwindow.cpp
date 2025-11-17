@@ -1,6 +1,10 @@
 #include "mainwindow.h"
-#include "translator.h"
+
 #include "windowstraymanager.h"
+#include "translator.h"
+#include "hotkeymanager.h"
+#include "volumecontrol.h"
+
 #include <QApplication>
 #include <QStyle>
 #include <QMessageBox>
@@ -23,6 +27,7 @@
 #include <QDir>
 #include <QThread>
 #include <QWidgetAction>
+
 #include <psapi.h>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -688,6 +693,7 @@ void MainWindow::createContextMenu()
     bringToFrontAction = new QAction(trc("MainWindow", "Bring to Front"), this);
     highlightAction = new QAction(trc("MainWindow", "Highlight Window"), this);
     toggleOnTopAction = new QAction(trc("MainWindow", "Always on Top"), this);
+    muteAction = new QAction(trc("MainWindow", "Mute/Unmute Window"), this);
     opacityMenu = new QMenu(trc("MainWindow", "Opacity"), contextMenu);
     opacitySlider = new QSlider(Qt::Horizontal);
     opacityLabel = new QLabel;
@@ -704,6 +710,7 @@ void MainWindow::createContextMenu()
     connect(bringToFrontAction, &QAction::triggered, this, &MainWindow::bringToFront);
     connect(highlightAction, &QAction::triggered, this, &MainWindow::highlightWindow);
     connect(toggleOnTopAction, &QAction::triggered, this, &MainWindow::toggleWindowOnTop);
+    connect(muteAction, &QAction::triggered, this, &MainWindow::toggleMuteWindow);
     connect(opacitySlider, &QSlider::valueChanged,this, &MainWindow::onOpacitySliderChanged);
     connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
 
@@ -722,6 +729,7 @@ void MainWindow::createContextMenu()
     contextMenu->addAction(bringToFrontAction);
     contextMenu->addAction(highlightAction);
     contextMenu->addAction(toggleOnTopAction);
+    contextMenu->addAction(muteAction);
     contextMenu->addMenu(opacityMenu);
     contextMenu->addSeparator();
     contextMenu->addAction(endTaskAction);
@@ -931,7 +939,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
         // 获取窗口标题
         wchar_t title[256];
         GetWindowText(hwnd, title, 256);
-        QString windowTitle = QString::fromWCharArray(L"title");
+        QString windowTitle = QString::fromWCharArray(title);
 
         // 过滤条件
         // 1.窗口有效性
@@ -2332,4 +2340,30 @@ void MainWindow::onOpacitySliderChanged(int val)
         SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
 
     SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA);
+}
+
+void MainWindow::toggleMuteWindow() {
+    HWND hwnd = getSelectedWindow();
+    if (!hwnd) {
+        QMessageBox::information(this, trc("MainWindow", "Information"),
+            trc("MainWindow", "Please select a window to mute/unmute"));
+        return;
+    }
+
+    DWORD processId;
+    GetWindowThreadProcessId(hwnd, &processId);
+
+    static QMap<DWORD, bool> muteStates;
+    bool current = muteStates.value(processId, false);
+    bool success = VolumeControl::SetProcessMute(processId, !current);
+
+    if (success) {
+        muteStates[processId] = !current;
+        QMessageBox::information(this, trc("MainWindow", "Success"),
+            trc("MainWindow", "Window %1.").arg(current ? "unmuted" : "muted"));
+    }
+    else {
+        QMessageBox::warning(this, trc("MainWindow", "Error"),
+            trc("MainWindow", "Failed to mute/unmute window."));
+    }
 }
