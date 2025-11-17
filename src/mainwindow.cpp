@@ -2355,7 +2355,7 @@ void MainWindow::toggleMuteWindow() {
 
     static QMap<DWORD, bool> muteStates;
     bool current = muteStates.value(processId, false);
-    bool success = VolumeControl::SetProcessMute(processId, !current);
+    bool success = VolumeControl::SetProcessMuteWithTimeout(processId, !current, 1000);
 
     if (success) {
         muteStates[processId] = !current;

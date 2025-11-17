@@ -1,4 +1,7 @@
 #include "volumecontrol.h"
+#include <thread>
+#include <atomic>
+#include <chrono>
 #include <mmdeviceapi.h>
 #include <audiopolicy.h>
 #include <functiondiscoverykeys_devpkey.h>
@@ -67,4 +70,27 @@ cleanup:
     if (deviceEnumerator) deviceEnumerator->Release();
     CoUninitialize();
     return false;
+}
+
+bool VolumeControl::SetProcessMuteWithTimeout(DWORD processId, bool mute, int timeoutMs) {
+    std::atomic<bool> done{ false };
+    std::atomic<bool> result{ false };
+
+    std::thread worker([&]() {
+        result = SetProcessMute(processId, mute);
+        done = true;
+        });
+
+    auto start = std::chrono::steady_clock::now();
+    while (!done) {
+        if (std::chrono::steady_clock::now() - start > std::chrono::milliseconds(timeoutMs)) {
+            // 超时分离线程
+            worker.detach();
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    if (worker.joinable()) worker.join();
+    return result.load();
 }
