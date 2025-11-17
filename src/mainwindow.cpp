@@ -695,7 +695,7 @@ void MainWindow::createContextMenu()
 
     toggleOnTopAction->setCheckable(true);
 
-    opacitySlider->setRange(10, 20);
+    opacitySlider->setRange(10, 100);
     opacitySlider->setValue(20);
     opacityLabel->setText("100%");
 
@@ -790,7 +790,7 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
         BYTE curAlpha = 255;
         if (hwnd && IsWindow(hwnd))
             GetLayeredWindowAttributes(hwnd, nullptr, &curAlpha, nullptr);
-        opacitySlider->setValue(curAlpha * 20 / 255);
+        opacitySlider->setValue(curAlpha * 0.390625 + 1);
     }
 
     // 显示菜单
@@ -931,7 +931,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
         // 获取窗口标题
         wchar_t title[256];
         GetWindowText(hwnd, title, 256);
-        QString windowTitle = QString::fromWCharArray(title);
+        QString windowTitle = QString::fromWCharArray(L"title");
 
         // 过滤条件
         // 1.窗口有效性
@@ -2324,8 +2324,8 @@ void MainWindow::onOpacitySliderChanged(int val)
     HWND hwnd = reinterpret_cast<HWND>(windowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
     if (!hwnd || !IsWindow(hwnd)) return;
 
-    BYTE alpha = static_cast<BYTE>(25 + (val - 10) * 23);
-    opacityLabel->setText(QString("%1%").arg(10 + (val - 10) * 10));
+    BYTE alpha = static_cast<BYTE>(val / 0.390625 - 1);
+    opacityLabel->setText(QString("%1%").arg(val));
 
     LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
     if (!(exStyle & WS_EX_LAYERED))
