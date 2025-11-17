@@ -17,10 +17,11 @@ bool VolumeControl::SetProcessMute(DWORD processId, bool mute) {
     IMMDevice* device = nullptr;
     IAudioSessionManager2* sessionManager = nullptr;
     IAudioSessionEnumerator* sessionEnumerator = nullptr;
+    int sessionCount = 0;
+    bool anyMuted = false;
 
     HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
         __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
-    int sessionCount = 0;
     if (FAILED(hr)) goto cleanup;
 
     hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
@@ -32,7 +33,8 @@ bool VolumeControl::SetProcessMute(DWORD processId, bool mute) {
     hr = sessionManager->GetSessionEnumerator(&sessionEnumerator);
     if (FAILED(hr)) goto cleanup;
 
-    sessionEnumerator->GetCount(&sessionCount);
+    hr = sessionEnumerator->GetCount(&sessionCount);
+    if (FAILED(hr)) goto cleanup;
 
     for (int i = 0; i < sessionCount; ++i) {
         IAudioSessionControl* control = nullptr;
@@ -52,10 +54,7 @@ bool VolumeControl::SetProcessMute(DWORD processId, bool mute) {
                 if (SUCCEEDED(hr)) {
                     volume->SetMute(mute, nullptr);
                     volume->Release();
-                    control2->Release();
-                    control->Release();
-                    CoUninitialize();
-                    return true;
+                    anyMuted = true;
                 }
             }
             control2->Release();
@@ -69,7 +68,7 @@ cleanup:
     if (device) device->Release();
     if (deviceEnumerator) deviceEnumerator->Release();
     CoUninitialize();
-    return false;
+    return anyMuted;  // 只要有一个会话被静音就算成功
 }
 
 bool VolumeControl::SetProcessMuteWithTimeout(DWORD processId, bool mute, int timeoutMs) {
