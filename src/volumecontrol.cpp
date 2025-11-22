@@ -1,24 +1,34 @@
 #include "volumecontrol.h"
+#include <QDebug>
 #include <thread>
 #include <atomic>
 #include <chrono>
-#include <mmdeviceapi.h>
-#include <audiopolicy.h>
-#include <functiondiscoverykeys_devpkey.h>
-#include <QDebug>
 
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "oleaut32.lib")
 
-bool VolumeControl::SetProcessMute(DWORD processId, bool mute) {
-    CoInitialize(nullptr);
+QString VolumeControl::GetExeName(DWORD pid)
+{
+    HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!h) return {};
+    wchar_t path[MAX_PATH]{};
+    DWORD len = MAX_PATH;
+    QueryFullProcessImageNameW(h, 0, path, &len);
+    CloseHandle(h);
+    const wchar_t* name = wcsrchr(path, L'\\');
+    return QString::fromWCharArray(name ? name + 1 : path).toLower();
+}
 
+bool VolumeControl::SetProcessMute(DWORD processId, bool mute)
+{
+    CoInitialize(nullptr);
     IMMDeviceEnumerator* deviceEnumerator = nullptr;
     IMMDevice* device = nullptr;
     IAudioSessionManager2* sessionManager = nullptr;
     IAudioSessionEnumerator* sessionEnumerator = nullptr;
     int sessionCount = 0;
     bool anyMuted = false;
+    QString targetExe = GetExeName(processId);
 
     HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
         __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
@@ -36,6 +46,8 @@ bool VolumeControl::SetProcessMute(DWORD processId, bool mute) {
     hr = sessionEnumerator->GetCount(&sessionCount);
     if (FAILED(hr)) goto cleanup;
 
+    if (targetExe.isEmpty()) goto cleanup;
+
     for (int i = 0; i < sessionCount; ++i) {
         IAudioSessionControl* control = nullptr;
         IAudioSessionControl2* control2 = nullptr;
@@ -48,8 +60,7 @@ bool VolumeControl::SetProcessMute(DWORD processId, bool mute) {
         if (SUCCEEDED(hr)) {
             DWORD pid = 0;
             control2->GetProcessId(&pid);
-
-            if (pid == processId || IsEdgeProcess(pid)) {
+            if (pid && GetExeName(pid) == targetExe) {   // 同一款软件全部静音
                 hr = control->QueryInterface(&volume);
                 if (SUCCEEDED(hr)) {
                     volume->SetMute(mute, nullptr);
@@ -68,10 +79,11 @@ cleanup:
     if (device) device->Release();
     if (deviceEnumerator) deviceEnumerator->Release();
     CoUninitialize();
-    return anyMuted;  // 只要有一个会话被静音就算成功
+    return anyMuted;
 }
 
-bool VolumeControl::SetProcessMuteWithTimeout(DWORD processId, bool mute, int timeoutMs) {
+bool VolumeControl::SetProcessMuteWithTimeout(DWORD processId, bool mute, int timeoutMs)
+{
     std::atomic<bool> done{ false };
     std::atomic<bool> result{ false };
 
@@ -83,27 +95,11 @@ bool VolumeControl::SetProcessMuteWithTimeout(DWORD processId, bool mute, int ti
     auto start = std::chrono::steady_clock::now();
     while (!done) {
         if (std::chrono::steady_clock::now() - start > std::chrono::milliseconds(timeoutMs)) {
-            // 超时分离线程
             worker.detach();
             return false;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-
     if (worker.joinable()) worker.join();
     return result.load();
-}
-
-bool VolumeControl::IsEdgeProcess(DWORD pid)
-{
-    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (!hProc) return false;
-    wchar_t path[MAX_PATH]{};
-    DWORD len = MAX_PATH;
-    BOOL ok = QueryFullProcessImageNameW(hProc, 0, path, &len);
-    CloseHandle(hProc);
-    if (!ok) return false;
-    std::wstring s(path);
-    for (auto& c : s) c = (wchar_t)towlower(c);
-    return s.find(L"msedge.exe") != std::wstring::npos;
 }
