@@ -118,6 +118,7 @@ private:
     QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
     QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
     QList<HWND> m_hiddenWindowOrder;
+    QMap<DWORD, bool> muteStates;
 
     // 配置文件路径
     QString getConfigPath() const;

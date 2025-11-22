@@ -693,13 +693,14 @@ void MainWindow::createContextMenu()
     bringToFrontAction = new QAction(trc("MainWindow", "Bring to Front"), this);
     highlightAction = new QAction(trc("MainWindow", "Highlight Window"), this);
     toggleOnTopAction = new QAction(trc("MainWindow", "Always on Top"), this);
-    muteAction = new QAction(trc("MainWindow", "Mute/Unmute Window"), this);
+    muteAction = new QAction(trc("MainWindow", "Mute Process"), this);
     opacityMenu = new QMenu(trc("MainWindow", "Opacity"), contextMenu);
     opacitySlider = new QSlider(Qt::Horizontal);
     opacityLabel = new QLabel;
     endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
 
     toggleOnTopAction->setCheckable(true);
+    muteAction->setCheckable(true);
 
     opacitySlider->setRange(10, 100);
     opacitySlider->setValue(20);
@@ -773,6 +774,11 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
         }
         return;
     }
+
+    DWORD processId = 0;
+    GetWindowThreadProcessId(hwnd, &processId);
+    bool isMuted = muteStates.value(processId, false);
+    muteAction->setChecked(isMuted);
 
     // 根据窗口状态更新菜单项
     bool isHidden = false;
@@ -1211,6 +1217,8 @@ void MainWindow::retranslateUI()
         bringToFrontAction->setText(trc("MainWindow", "Bring to Front"));
         highlightAction->setText(trc("MainWindow", "Highlight Window"));
         toggleOnTopAction->setText(trc("MainWindow", "Always on Top"));
+        muteAction->setText(trc("MainWindow", "Mute Process"));
+        opacityMenu->setTitle(trc("MainWindow", "Opacity"));
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
 
@@ -2353,7 +2361,6 @@ void MainWindow::toggleMuteWindow() {
     DWORD processId;
     GetWindowThreadProcessId(hwnd, &processId);
 
-    static QMap<DWORD, bool> muteStates;
     bool current = muteStates.value(processId, false);
     bool success = VolumeControl::SetProcessMuteWithTimeout(processId, !current, 1000);
 
@@ -2364,6 +2371,6 @@ void MainWindow::toggleMuteWindow() {
     }
     else {
         QMessageBox::warning(this, trc("MainWindow", "Error"),
-            trc("MainWindow", "Failed to mute/unmute window."));
+            trc("MainWindow", "Failed to mute/unmute process."));
     }
 }
