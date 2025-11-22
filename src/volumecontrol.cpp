@@ -49,7 +49,7 @@ bool VolumeControl::SetProcessMute(DWORD processId, bool mute) {
             DWORD pid = 0;
             control2->GetProcessId(&pid);
 
-            if (pid == processId) {
+            if (pid == processId || IsEdgeProcess(pid)) {
                 hr = control->QueryInterface(&volume);
                 if (SUCCEEDED(hr)) {
                     volume->SetMute(mute, nullptr);
@@ -92,4 +92,18 @@ bool VolumeControl::SetProcessMuteWithTimeout(DWORD processId, bool mute, int ti
 
     if (worker.joinable()) worker.join();
     return result.load();
+}
+
+bool VolumeControl::IsEdgeProcess(DWORD pid)
+{
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hProc) return false;
+    wchar_t path[MAX_PATH]{};
+    DWORD len = MAX_PATH;
+    BOOL ok = QueryFullProcessImageNameW(hProc, 0, path, &len);
+    CloseHandle(hProc);
+    if (!ok) return false;
+    std::wstring s(path);
+    for (auto& c : s) c = (wchar_t)towlower(c);
+    return s.find(L"msedge.exe") != std::wstring::npos;
 }
