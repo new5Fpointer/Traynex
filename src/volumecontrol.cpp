@@ -102,8 +102,8 @@ bool VolumeControl::IsEdgeProcess(DWORD pid)
     DWORD len = MAX_PATH;
     BOOL ok = QueryFullProcessImageNameW(hProc, 0, path, &len);
     CloseHandle(hProc);
-    if (!ok) return false;
-    std::wstring s(path);
-    for (auto& c : s) c = (wchar_t)towlower(c);
-    return s.find(L"msedge.exe") != std::wstring::npos;
+    if (!ok || !len) return false;
+    const wchar_t* tail = path + len;
+    while (tail > path && tail[-1] != L'\\') --tail;
+    return (wcsicmp(tail, L"msedge.exe") == 0);
 }
