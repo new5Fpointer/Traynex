@@ -64,6 +64,8 @@ private slots:
     void clearMinimizeHotkey();
     void updateMinimizeHotkeyDisplay();
     void onOpacitySliderChanged(int value);
+    void openFileLocation();
+    void showFileProperties();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -139,6 +141,8 @@ private:
     QAction* toggleOnTopAction;
     QAction* muteAction;
     QAction* opacityAction;
+    QAction* openFolderAction;
+    QAction* filePropsAction;
     QAction* endTaskAction;
 
     // 音量子控件

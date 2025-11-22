@@ -27,8 +27,11 @@
 #include <QDir>
 #include <QThread>
 #include <QWidgetAction>
+#include <QProcess>
+#include <QFileInfo>
 
 #include <psapi.h>
+#include <shellapi.h>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -697,6 +700,8 @@ void MainWindow::createContextMenu()
     opacityMenu = new QMenu(trc("MainWindow", "Opacity"), contextMenu);
     opacitySlider = new QSlider(Qt::Horizontal);
     opacityLabel = new QLabel;
+    openFolderAction = new QAction(trc("MainWindow", "Open File Location"), this);
+    filePropsAction = new QAction(trc("MainWindow", "File Properties"), this);
     endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
 
     toggleOnTopAction->setCheckable(true);
@@ -713,6 +718,8 @@ void MainWindow::createContextMenu()
     connect(toggleOnTopAction, &QAction::triggered, this, &MainWindow::toggleWindowOnTop);
     connect(muteAction, &QAction::triggered, this, &MainWindow::toggleMuteWindow);
     connect(opacitySlider, &QSlider::valueChanged,this, &MainWindow::onOpacitySliderChanged);
+    connect(openFolderAction, &QAction::triggered, this, &MainWindow::openFileLocation);
+    connect(filePropsAction, &QAction::triggered, this, &MainWindow::showFileProperties);
     connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
 
     auto* sliderAction = new QWidgetAction(opacityMenu);
@@ -732,6 +739,9 @@ void MainWindow::createContextMenu()
     contextMenu->addAction(toggleOnTopAction);
     contextMenu->addAction(muteAction);
     contextMenu->addMenu(opacityMenu);
+    contextMenu->addSeparator();
+    contextMenu->addAction(openFolderAction);
+    contextMenu->addAction(filePropsAction);
     contextMenu->addSeparator();
     contextMenu->addAction(endTaskAction);
 }
@@ -1219,6 +1229,7 @@ void MainWindow::retranslateUI()
         toggleOnTopAction->setText(trc("MainWindow", "Always on Top"));
         muteAction->setText(trc("MainWindow", "Mute Process"));
         opacityMenu->setTitle(trc("MainWindow", "Opacity"));
+        openFolderAction->setText(trc("MainWindow", "Open File Location"));
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
 
@@ -2373,4 +2384,57 @@ void MainWindow::toggleMuteWindow() {
         QMessageBox::warning(this, trc("MainWindow", "Error"),
             trc("MainWindow", "Failed to mute/unmute process."));
     }
+}
+
+void MainWindow::openFileLocation()
+{
+    HWND hwnd = getSelectedWindow();
+    if (!hwnd) return;
+
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (!pid) return;
+
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hProc) return;
+    wchar_t path[MAX_PATH]{};
+    DWORD len = MAX_PATH;
+    QueryFullProcessImageNameW(hProc, 0, path, &len);
+    CloseHandle(hProc);
+    if (!len) return;
+
+    QString fullPath = QDir::toNativeSeparators(QString::fromWCharArray(path));
+    if (!QFileInfo::exists(fullPath)) return;
+
+    // 选择文件
+    QStringList args{ "/select,", QDir::toNativeSeparators(fullPath) };
+    QProcess::startDetached("explorer.exe", args);
+}
+
+void MainWindow::showFileProperties()
+{
+    HWND hwnd = getSelectedWindow();
+    if (!hwnd) return;
+
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    if (!pid) return;
+
+    HANDLE hProc = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!hProc) return;
+    wchar_t path[MAX_PATH]{};
+    DWORD len = MAX_PATH;
+    QueryFullProcessImageNameW(hProc, 0, path, &len);
+    CloseHandle(hProc);
+    if (!len) return;
+
+    if (!QFileInfo::exists(QString::fromWCharArray(path))) return;
+
+    SHELLEXECUTEINFO sei{};
+    sei.cbSize = sizeof(SHELLEXECUTEINFO);
+    sei.lpFile = path;
+    sei.nShow = SW_SHOW;
+    sei.fMask = SEE_MASK_INVOKEIDLIST;
+    sei.lpVerb = L"properties";
+    ShellExecuteExW(&sei);
 }

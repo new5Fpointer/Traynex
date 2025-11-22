@@ -138,3 +138,5 @@ Process unmuted.=进程已取消静音
 Please select a window to mute/unmute=请选择要静音/取消静音的进程
 Failed to mute/unmute process.=静音/取消静音进程失败
 Opacity=透明度
+Open File Location=打开文件所在位置
+File Properties=文件属性
