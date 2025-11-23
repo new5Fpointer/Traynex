@@ -2407,9 +2407,15 @@ void MainWindow::openFileLocation()
     QString fullPath = QDir::toNativeSeparators(QString::fromWCharArray(path));
     if (!QFileInfo::exists(fullPath)) return;
 
-    // 选择文件
-    QStringList args{ "/select,", QDir::toNativeSeparators(fullPath) };
-    QProcess::startDetached("explorer.exe", args);
+    QString args = "/select,\"" + fullPath + "\"";
+
+    SHELLEXECUTEINFO sei{};
+    sei.cbSize = sizeof(SHELLEXECUTEINFO);
+    sei.lpFile = L"explorer.exe";
+    sei.nShow = SW_SHOW;
+    sei.fMask = SEE_MASK_INVOKEIDLIST;
+    sei.lpParameters = reinterpret_cast<LPCWSTR>(args.utf16());
+    ShellExecuteExW(&sei);
 }
 
 void MainWindow::showFileProperties()
