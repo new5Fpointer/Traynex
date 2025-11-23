@@ -717,7 +717,7 @@ void MainWindow::createContextMenu()
     connect(highlightAction, &QAction::triggered, this, &MainWindow::highlightWindow);
     connect(toggleOnTopAction, &QAction::triggered, this, &MainWindow::toggleWindowOnTop);
     connect(muteAction, &QAction::triggered, this, &MainWindow::toggleMuteWindow);
-    connect(opacitySlider, &QSlider::valueChanged,this, &MainWindow::onOpacitySliderChanged);
+    connect(opacitySlider, &QSlider::valueChanged, this, &MainWindow::onOpacitySliderChanged);
     connect(openFolderAction, &QAction::triggered, this, &MainWindow::openFileLocation);
     connect(filePropsAction, &QAction::triggered, this, &MainWindow::showFileProperties);
     connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
@@ -989,7 +989,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
         if ((exStyle & WS_EX_NOACTIVATE) && !isAppWindow) {
             return TRUE;
         }
-        
+
         wchar_t className[256];
         GetClassName(hwnd, className, 256);
         QString windowClass = QString::fromWCharArray(className);
@@ -1230,6 +1230,7 @@ void MainWindow::retranslateUI()
         muteAction->setText(trc("MainWindow", "Mute Process"));
         opacityMenu->setTitle(trc("MainWindow", "Opacity"));
         openFolderAction->setText(trc("MainWindow", "Open File Location"));
+        filePropsAction->setText(trc("MainWindow", "File Properties"));
         endTaskAction->setText(trc("MainWindow", "End Task"));
     }
 
