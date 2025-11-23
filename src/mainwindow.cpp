@@ -317,16 +317,20 @@ void MainWindow::setupUI()
 
     hotkeyLayout->addRow(minimizeHotkeyLabel, minimizeHotkeyLayout);
 
-    // 连接信号
     connect(setMinimizeHotkeyButton, &QPushButton::clicked, this, &MainWindow::startSetMinimizeHotkey);
     connect(clearMinimizeHotkeyButton, &QPushButton::clicked, this, &MainWindow::clearMinimizeHotkey);
 
-    // 创建表单标签并设置对象名称
     QLabel* maxWindowsLabel = new QLabel(trc("MainWindow", "Maximum hidden windows:"));
     maxWindowsLabel->setObjectName("maxWindowsLabel");
 
     QLabel* languageLabel = new QLabel(trc("MainWindow", "Language:"));
     languageLabel->setObjectName("languageLabel");
+
+    QPushButton* resetDefaultsButton = new QPushButton(trc("MainWindow", "Reset to Defaults"));
+    resetDefaultsButton->setObjectName("resetDefaultsButton");
+    resetDefaultsButton->setMaximumWidth(120);
+
+    connect(resetDefaultsButton, &QPushButton::clicked, this, &MainWindow::onResetDefaults);
 
     windowLayout->addRow(maxWindowsLabel, maxWindowsSpin);
     windowLayout->addRow(languageLabel, languageCombo);
@@ -336,6 +340,7 @@ void MainWindow::setupUI()
     settingsLayout->addWidget(windowGroup);
     settingsLayout->addWidget(hotkeyGroup);
     settingsLayout->addStretch();
+    settingsLayout->addWidget(resetDefaultsButton, 0, Qt::AlignLeft);
 
     // === 关于页面 ===
     QWidget* aboutTab = new QWidget();
@@ -600,7 +605,14 @@ QString MainWindow::getConfigPath() const
 
 void MainWindow::loadSettings()
 {
-    QSettings settings(getConfigPath(), QSettings::IniFormat);
+    QString configPath = getConfigPath();
+
+    // 创建默认配置
+    if (!QFile::exists(configPath)) {
+        createDefaultConfig();
+    }
+
+    QSettings settings(configPath, QSettings::IniFormat);
 
     // 热键设置
     bool hotkeyEnabled = settings.value("hotkey/enabled", true).toBool();
@@ -2444,4 +2456,47 @@ void MainWindow::showFileProperties()
     sei.fMask = SEE_MASK_INVOKEIDLIST;
     sei.lpVerb = L"properties";
     ShellExecuteExW(&sei);
+}
+
+void MainWindow::createDefaultConfig()
+{
+    QSettings settings(getConfigPath(), QSettings::IniFormat);
+
+    // 通用
+    settings.setValue("general/language", "zh");
+    settings.setValue("general/start_with_system", false);
+
+    // 热键
+    settings.setValue("hotkey/enabled", true);
+    settings.setValue("Hotkeys/minimize_active", "Win+Shift+Z");
+
+    // 窗口
+    settings.setValue("window/max_hidden", 50);
+    settings.setValue("window/always_on_top", false);
+
+    // 刷新
+    settings.setValue("refresh/auto_refresh", true);
+    settings.setValue("refresh/interval", 500);
+
+    settings.sync();
+    qDebug() << "Default configuration created at:" << getConfigPath();
+}
+
+void MainWindow::onResetDefaults()
+{
+    int ret = QMessageBox::question(this,
+        trc("MainWindow", "Confirm Reset"),
+        trc("MainWindow", "Are you sure you want to reset all settings to default?"));
+
+    if (ret != QMessageBox::Yes)
+        return;
+
+    createDefaultConfig();      // 写入默认配置
+    loadSettings();             // 重新加载界面设置
+    loadHotkeySettings();       // 重新加载热键
+    retranslateUI();            // 刷新语言
+
+    QMessageBox::information(this,
+        trc("MainWindow", "Reset Complete"),
+        trc("MainWindow", "All settings have been restored to default."));
 }

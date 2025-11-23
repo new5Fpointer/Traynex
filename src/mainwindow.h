@@ -66,6 +66,7 @@ private slots:
     void onOpacitySliderChanged(int value);
     void openFileLocation();
     void showFileProperties();
+    void onResetDefaults();
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -104,6 +105,8 @@ private:
     void cancelHotkeySetting();
 
     void toggleMuteWindow();
+
+    void createDefaultConfig();
 
     QIcon getWindowIcon(HWND hwnd) const;
 
@@ -153,7 +156,7 @@ private:
     // 隐藏窗口页面组件
     QTableWidget* hiddenWindowsTable;
 
-	// 隐藏窗口页面右键菜单
+    // 隐藏窗口页面右键菜单
     QMenu* hiddenTableContextMenu;
     QAction* restoreHiddenAction;
     QAction* restoreLastHiddenAction;
