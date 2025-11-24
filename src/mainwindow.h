@@ -47,7 +47,6 @@ private slots:
     void onRefreshSettingChanged();
     void onLanguageChanged();
     void onStartWithSystemChanged();
-    void onMaxWindowsChanged();
     void autoSaveSettings();
     void onAlwaysOnTopChanged();
     void highlightWindow();
@@ -165,7 +164,6 @@ private:
     // 设置页面组件
     QCheckBox* startWithSystemCheck;
     QCheckBox* enableHotkeyCheck;
-    QSpinBox* maxWindowsSpin;
     QComboBox* languageCombo;
     QPushButton* saveSettingsButton;
     QCheckBox* alwaysOnTopCheck;

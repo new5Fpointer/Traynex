@@ -284,11 +284,6 @@ void MainWindow::setupUI()
     windowGroup->setObjectName("windowGroup"); // 设置对象名称
     QFormLayout* windowLayout = new QFormLayout(windowGroup);
 
-    maxWindowsSpin = new QSpinBox();
-    maxWindowsSpin->setRange(1, 100);
-    maxWindowsSpin->setValue(50);
-    maxWindowsSpin->setSuffix(trc("MainWindow", " windows"));
-
     languageCombo = new QComboBox();
     languageCombo->addItem("English", "en");
     languageCombo->addItem("中文", "zh");
@@ -332,7 +327,6 @@ void MainWindow::setupUI()
 
     connect(resetDefaultsButton, &QPushButton::clicked, this, &MainWindow::onResetDefaults);
 
-    windowLayout->addRow(maxWindowsLabel, maxWindowsSpin);
     windowLayout->addRow(languageLabel, languageCombo);
 
     settingsLayout->addWidget(generalGroup);
@@ -403,7 +397,6 @@ void MainWindow::setupConnections()
     connect(refreshIntervalSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onRefreshSettingChanged);
     connect(languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onLanguageChanged);
     connect(startWithSystemCheck, &QCheckBox::stateChanged, this, &MainWindow::onStartWithSystemChanged);
-    connect(maxWindowsSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onMaxWindowsChanged);
     connect(alwaysOnTopCheck, &QCheckBox::stateChanged, this, &MainWindow::onAlwaysOnTopChanged);
 }
 
@@ -613,10 +606,6 @@ void MainWindow::loadSettings()
     bool hotkeyEnabled = settings.value("hotkey/enabled", true).toBool();
     enableHotkeyCheck->setChecked(hotkeyEnabled);
 
-    // 窗口设置
-    int maxWindows = settings.value("window/max_hidden", 50).toInt();
-    maxWindowsSpin->setValue(maxWindows);
-
     // 常规设置
     bool startWithSystem = settings.value("general/start_with_system", false).toBool();
     startWithSystemCheck->setChecked(startWithSystem);
@@ -652,7 +641,6 @@ void MainWindow::saveSettings()
     settings.setValue("hotkey/enabled", enableHotkeyCheck->isChecked());
 
     // 窗口设置
-    settings.setValue("window/max_hidden", maxWindowsSpin->value());
     settings.setValue("window/always_on_top", alwaysOnTopCheck->isChecked());
 
     // 常规设置
@@ -1325,11 +1313,6 @@ void MainWindow::onStartWithSystemChanged()
 
     // 自动保存设置
     QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
-}
-
-void MainWindow::onMaxWindowsChanged()
-{
-
 }
 
 void MainWindow::autoSaveSettings()
@@ -2455,7 +2438,6 @@ void MainWindow::createDefaultConfig()
     settings.setValue("Hotkeys/minimize_active", "Win+Shift+Z");
 
     // 窗口
-    settings.setValue("window/max_hidden", 50);
     settings.setValue("window/always_on_top", false);
 
     // 刷新

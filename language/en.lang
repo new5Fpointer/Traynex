@@ -76,12 +76,10 @@ Refresh interval:=Refresh interval:
 seconds=seconds
 ms=ms
 Window Settings=Window Settings
-Maximum hidden windows:=Maximum hidden windows:
 windows=windows
 Hidden Windows=Hidden Windows
 Language:=Language:
 Save Settings=Save Settings
-Maximum hidden windows:=Maximum hidden windows:
 
 ; === Error/Warning/Success/Prompt Messages ===
 Error=Error

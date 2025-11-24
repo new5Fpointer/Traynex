@@ -48,5 +48,4 @@ private:
     static WindowsTrayManager* s_instance;
 
     static constexpr UINT WM_TRAYICON = WM_USER + 101;
-    static constexpr int MAX_WINDOWS = 50;
 };
