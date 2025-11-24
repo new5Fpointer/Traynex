@@ -123,7 +123,7 @@ std::wstring WindowsTrayManager::getWindowTitle(HWND hwnd) const
 
 bool WindowsTrayManager::minimizeWindowToTray(HWND hwnd)
 {
-    if (!hwnd || m_hiddenWindows.size() >= MAX_WINDOWS) {
+    if (!hwnd) {
         return false;
     }
 

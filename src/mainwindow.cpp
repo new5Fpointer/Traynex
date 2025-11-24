@@ -579,12 +579,7 @@ void MainWindow::createTrayIcon()
 
     // 设置图标
     QIcon icon(":/icon/icon.png");
-    if (icon.isNull()) {
-        qWarning() << "Failed to load tray icon from resource, using default";
-        icon = QApplication::style()->standardIcon(QStyle::SP_ComputerIcon);
-    }
     trayIcon->setIcon(icon);
-
     trayIcon->setContextMenu(trayMenu);
     trayIcon->setToolTip(tr("Traynex"));
 
@@ -669,8 +664,6 @@ void MainWindow::saveSettings()
     settings.setValue("refresh/interval", refreshIntervalSpin->value());
 
     settings.sync(); // 立即写入磁盘
-
-    qDebug() << "Settings saved to:" << getConfigPath();
 }
 
 void MainWindow::hideSelectedToTray()
@@ -1336,22 +1329,13 @@ void MainWindow::onStartWithSystemChanged()
 
 void MainWindow::onMaxWindowsChanged()
 {
-    int maxWindows = maxWindowsSpin->value();
 
-    // 更新最大窗口限制
-    // WindowsTrayManager::instance().setMaxWindows(maxWindows);
-
-    qDebug() << "Max windows changed:" << maxWindows;
-
-    // 自动保存设置
-    QTimer::singleShot(100, this, &MainWindow::autoSaveSettings);
 }
 
 void MainWindow::autoSaveSettings()
 {
     saveSettings();
     saveHotkeySettings();
-    qDebug() << "Settings auto-saved";
 }
 
 void MainWindow::onAlwaysOnTopChanged()
@@ -2479,7 +2463,6 @@ void MainWindow::createDefaultConfig()
     settings.setValue("refresh/interval", 500);
 
     settings.sync();
-    qDebug() << "Default configuration created at:" << getConfigPath();
 }
 
 void MainWindow::onResetDefaults()

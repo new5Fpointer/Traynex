@@ -34,7 +34,7 @@ bool Translator::loadLanguage(const QString& langFile)
             QString key = line.left(eq).trimmed();
             QString value = line.mid(eq + 1).trimmed();
 
-            // 支持带引号的值（可选）
+            // 支持带引号的值
             if (value.length() >= 2 && value.startsWith('"') && value.endsWith('"'))
                 value = value.mid(1, value.length() - 2);
 
