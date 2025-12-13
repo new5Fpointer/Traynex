@@ -2070,13 +2070,6 @@ void MainWindow::restoreLastWindow()
 	if (success) {
 		refreshAllLists();
 		updateTrayMenu();
-
-		// 显示成功消息
-		wchar_t title[256];
-		if (GetWindowText(lastHwnd, title, 256) > 0) {
-			QMessageBox::information(this, trc("MainWindow", "Success"),
-									 trc("MainWindow", "Restored window: %1").arg(QString::fromWCharArray(title)));
-		}
 	}
 	else {
 		// 恢复失败，将窗口重新放回列表开头
@@ -2274,8 +2267,6 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event)
 
 		// 检查热键是否已被占用
 		if (!isHotkeyAvailable(keySequence)) {
-			QMessageBox::warning(this, trc("MainWindow", "Error"),
-								 trc("MainWindow", "This hotkey is already in use!"));
 			cancelHotkeySetting();
 			return true;
 		}
@@ -2616,7 +2607,7 @@ void MainWindow::startBindHotkey()
 		if (m_settingHotkey) {
 			cancelHotkeySetting();
 		}
-					   });
+	});
 }
 
 bool MainWindow::isHotkeyAvailable(const QKeySequence& keySequence)
@@ -2630,7 +2621,11 @@ bool MainWindow::isHotkeyAvailable(const QKeySequence& keySequence)
 		}
 	}
 
-	// 这里可以添加检查系统保留热键的逻辑
+	if (HotkeyManager::isSystemReservedHotkey(keySequence)) {
+		QMessageBox::warning(this, trc("MainWindow", "Warning"),
+			trc("MainWindow", "This hotkey is reserved by the system! Please choose another combination."));
+		return false;
+	}
 	return true;
 }
 
