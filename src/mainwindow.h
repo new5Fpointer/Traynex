@@ -21,174 +21,181 @@
 #include <QLineEdit>
 #include <windows.h>
 
-class MainWindow : public QMainWindow
-{
-    Q_OBJECT
+class MainWindow : public QMainWindow {
+	Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget* parent = nullptr);
-    ~MainWindow();
+	explicit MainWindow(QWidget* parent = nullptr);
+	~MainWindow();
 
-    QString trc(const char* context, const char* source) const;
+	QString trc(const char* context, const char* source) const;
 
 private slots:
-    void minimizeActiveToTray();
-    void showWindow();
-    void closeApp();
-    void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
-    void restoreSelectedWindow();
-    void restoreAllWindows();
-    void showAbout();
-    void refreshAllLists();
-    void hideSelectedToTray();
-    void onTableContextMenu(const QPoint& pos);
-    void bringToFront();
-    void endTask();
-    void onRefreshSettingChanged();
-    void onLanguageChanged();
-    void onStartWithSystemChanged();
-    void autoSaveSettings();
-    void onAlwaysOnTopChanged();
-    void highlightWindow();
-    void toggleWindowOnTop();
-    void refreshHiddenWindowsTable();
-    void restoreSelectedHiddenWindow();
-    void onHiddenTableContextMenu(const QPoint& pos);
-    void updateTrayMenu();
-    void hideToAppTray();
-    void restoreWindowFromAppTray();
-    void restoreLastWindow();
-    void onHotkeyTriggered(const QString& id);
-    void startSetMinimizeHotkey();
-    void clearMinimizeHotkey();
-    void updateMinimizeHotkeyDisplay();
-    void onOpacitySliderChanged(int value);
-    void openFileLocation();
-    void showFileProperties();
-    void onResetDefaults();
+	void minimizeActiveToTray();
+	void showWindow();
+	void closeApp();
+	void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
+	void restoreSelectedWindow();
+	void restoreAllWindows();
+	void showAbout();
+	void refreshAllLists();
+	void hideSelectedToTray();
+	void onTableContextMenu(const QPoint& pos);
+	void bringToFront();
+	void endTask();
+	void onRefreshSettingChanged();
+	void onLanguageChanged();
+	void onStartWithSystemChanged();
+	void autoSaveSettings();
+	void onAlwaysOnTopChanged();
+	void highlightWindow();
+	void toggleWindowOnTop();
+	void refreshHiddenWindowsTable();
+	void restoreSelectedHiddenWindow();
+	void onHiddenTableContextMenu(const QPoint& pos);
+	void updateTrayMenu();
+	void hideToAppTray();
+	void restoreWindowFromAppTray();
+	void restoreLastWindow();
+	void onHotkeyTriggered(const QString& id);
+	void onOpacitySliderChanged(int value);
+	void openFileLocation();
+	void showFileProperties();
+	void onResetDefaults();
+
+	void onHotkeySelectionChanged();
+	void startBindHotkey();
+	void clearSelectedHotkey();
+	void onHotkeyItemDoubleClicked(QTableWidgetItem* item);
 
 protected:
-    void closeEvent(QCloseEvent* event) override;
-    bool eventFilter(QObject* obj, QEvent* event) override;
+	void closeEvent(QCloseEvent* event) override;
+	bool eventFilter(QObject* obj, QEvent* event) override;
 
 private:
-    void createTrayIcon();
-    void setupUI();
-    void setupConnections();
-    void loadSettings();
-    void saveSettings();
+	void createTrayIcon();
+	void setupUI();
+	void setupConnections();
+	void loadSettings();
+	void saveSettings();
 
-    void refreshWindowsTable();
-    void createContextMenu();
+	void refreshWindowsTable();
+	void createContextMenu();
 
-    void loadLanguage(const QString& language);
-    void retranslateUI();
+	void loadLanguage(const QString& language);
+	void retranslateUI();
 
-    void updateWindowFlags();
+	void updateWindowFlags();
 
-    void flashWindowInTaskbar(HWND hwnd);
+	void flashWindowInTaskbar(HWND hwnd);
 
-    bool isWindowOnTop(HWND hwnd);
-    void setWindowOnTop(HWND hwnd, bool onTop);
+	bool isWindowOnTop(HWND hwnd);
+	void setWindowOnTop(HWND hwnd, bool onTop);
 
-    void addWindowToTrayMenu(HWND hwnd, const QString& title, const QIcon& icon = QIcon());
-    void removeWindowFromTrayMenu(HWND hwnd);
-    void updateTrayMenuLayout();
-    void updateTrayMenuIcons();
+	void addWindowToTrayMenu(HWND hwnd, const QString& title, const QIcon& icon = QIcon());
+	void removeWindowFromTrayMenu(HWND hwnd);
+	void updateTrayMenuLayout();
+	void updateTrayMenuIcons();
 
-    void setupHotkeys();
-    void saveHotkeySettings();
-    void loadHotkeySettings();
+	void saveHotkeySettings();
+	void loadHotkeySettings();
 
-    void finishHotkeySetting(const QString& keySequence);
-    void cancelHotkeySetting();
+	void finishHotkeySetting(const QString& keySequence);
+	void cancelHotkeySetting();
 
-    void toggleMuteWindow();
+	void toggleMuteWindow();
 
-    void createDefaultConfig();
+	void createDefaultConfig();
 
-    QIcon getWindowIcon(HWND hwnd) const;
+	void initializeHotkeyTable();
+	bool isHotkeyAvailable(const QKeySequence& keySequence);
 
-    struct WindowInfo {
-        QString title;
-        QString processName;
-        QString className;
-        DWORD processId;
-        HWND hwnd;
-        bool isHidden;
-        bool isVisible;
-        QIcon icon;
-    };
-    QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
-    QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
-    QList<HWND> m_hiddenWindowOrder;
-    QMap<DWORD, bool> muteStates;
+	QIcon getWindowIcon(HWND hwnd) const;
 
-    // 配置文件路径
-    QString getConfigPath() const;
-    HWND getSelectedWindow() const;
+	struct WindowInfo {
+		QString title;
+		QString processName;
+		QString className;
+		DWORD processId;
+		HWND hwnd;
+		bool isHidden;
+		bool isVisible;
+		QIcon icon;
+	};
+	QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
+	QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
+	QList<HWND> m_hiddenWindowOrder;
+	QMap<DWORD, bool> muteStates;
 
-    // UI 组件
-    QTabWidget* tabWidget;
+	// 配置文件路径
+	QString getConfigPath() const;
+	HWND getSelectedWindow() const;
 
-    // 主页面组件
-    QTableWidget* windowsTable;
+	// UI 组件
+	QTabWidget* tabWidget;
 
-    // 主页面右键菜单
-    QMenu* contextMenu;
-    QAction* hideToTrayAction;
-    QAction* hideToAppTrayAction;
-    QAction* bringToFrontAction;
-    QAction* highlightAction;
-    QAction* toggleOnTopAction;
-    QAction* muteAction;
-    QAction* opacityAction;
-    QAction* openFolderAction;
-    QAction* filePropsAction;
-    QAction* endTaskAction;
+	// 主页面组件
+	QTableWidget* windowsTable;
 
-    // 音量子控件
-    QMenu* opacityMenu;
-    QSlider* opacitySlider;
-    QLabel* opacityLabel;
+	// 主页面右键菜单
+	QMenu* contextMenu;
+	QAction* hideToTrayAction;
+	QAction* hideToAppTrayAction;
+	QAction* bringToFrontAction;
+	QAction* highlightAction;
+	QAction* toggleOnTopAction;
+	QAction* muteAction;
+	QAction* opacityAction;
+	QAction* openFolderAction;
+	QAction* filePropsAction;
+	QAction* endTaskAction;
 
-    // 隐藏窗口页面组件
-    QTableWidget* hiddenWindowsTable;
+	// 音量子控件
+	QMenu* opacityMenu;
+	QSlider* opacitySlider;
+	QLabel* opacityLabel;
 
-    // 隐藏窗口页面右键菜单
-    QMenu* hiddenTableContextMenu;
-    QAction* restoreHiddenAction;
-    QAction* restoreLastHiddenAction;
-    QAction* restoreAllHiddenAction;
+	// 隐藏窗口页面组件
+	QTableWidget* hiddenWindowsTable;
 
-    // 设置页面组件
-    QCheckBox* startWithSystemCheck;
-    QCheckBox* enableHotkeyCheck;
-    QComboBox* languageCombo;
-    QPushButton* saveSettingsButton;
-    QCheckBox* alwaysOnTopCheck;
-    QLineEdit* minimizeHotkeyEdit;
-    QPushButton* setMinimizeHotkeyButton;
+	// 隐藏窗口页面右键菜单
+	QMenu* hiddenTableContextMenu;
+	QAction* restoreHiddenAction;
+	QAction* restoreLastHiddenAction;
+	QAction* restoreAllHiddenAction;
 
-    // 关于页面组件
-    QLabel* aboutLabel;
+	// 设置页面组件
+	QCheckBox* startWithSystemCheck;
+	QCheckBox* enableHotkeyCheck;
+	QComboBox* languageCombo;
+	QPushButton* saveSettingsButton;
+	QCheckBox* alwaysOnTopCheck;
 
-    // 托盘相关
-    QSystemTrayIcon* trayIcon;
-    QMenu* trayMenu;
-    QAction* showAction;
-    QMap<HWND, QAction*> m_appTrayWindows;
-    QAction* restoreLastAction;
-    QAction* restoreAllAction;
-    QAction* quitAction;
+	// 热键设置相关
+	QTableWidget* hotkeyTable;
+	QPushButton* bindHotkeyButton;
+	QPushButton* clearHotkeyButton;
+	QAction* currentHotkeyAction;
 
-    // 定时刷新计时器
-    QTimer* refreshTimer;
+	// 关于页面组件
+	QLabel* aboutLabel;
 
-    QCheckBox* autoRefreshCheck;
-    QSpinBox* refreshIntervalSpin;
+	// 托盘相关
+	QSystemTrayIcon* trayIcon;
+	QMenu* trayMenu;
+	QAction* showAction;
+	QMap<HWND, QAction*> m_appTrayWindows;
+	QAction* restoreLastAction;
+	QAction* restoreAllAction;
+	QAction* quitAction;
 
-    // 热键设置状态
-    bool m_settingHotkey = false;
-    QString m_currentHotkeyId;
+	// 定时刷新计时器
+	QTimer* refreshTimer;
+
+	QCheckBox* autoRefreshCheck;
+	QSpinBox* refreshIntervalSpin;
+
+	// 热键设置状态
+	bool m_settingHotkey = false;
+	QString m_currentHotkeyId;
 };

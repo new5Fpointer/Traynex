@@ -53,8 +53,8 @@ MainWindow::MainWindow(QWidget* parent)
 	setupUI();
 	setupConnections();
 
-	setupHotkeys();
-
+	connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyTriggered,
+			this, &MainWindow::onHotkeyTriggered);
 	connect(&WindowsTrayManager::instance(), &WindowsTrayManager::trayWindowsChanged,
 			this, &MainWindow::updateTrayMenu);
 	connect(&WindowsTrayManager::instance(), &WindowsTrayManager::trayWindowsChanged,
@@ -71,12 +71,13 @@ MainWindow::MainWindow(QWidget* parent)
 	QString language = languageCombo->currentData().toString();
 	loadLanguage(language);
 
+	initializeHotkeyTable();
+
 	setWindowTitle("Traynex");
 	resize(800, 600);
 
 	// 初始化 Windows 原生托盘管理器
-	if (!WindowsTrayManager::instance().initialize())
-	{
+	if (!WindowsTrayManager::instance().initialize()) {
 		QMessageBox::critical(this, trc("MainWindow", "Error"),
 							  trc("MainWindow", "Failed to initialize Windows tray manager"));
 	}
@@ -93,7 +94,8 @@ MainWindow::MainWindow(QWidget* parent)
 MainWindow::~MainWindow()
 {
 	WindowsTrayManager::instance().shutdown();
-	setupHotkeys();
+	connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyTriggered,
+			this, &MainWindow::onHotkeyTriggered);
 }
 
 void MainWindow::setupUI()
@@ -290,35 +292,49 @@ void MainWindow::setupUI()
 	languageCombo->addItem("English", "en");
 	languageCombo->addItem("中文", "zh");
 
-	// 热键设置组
+	// 热键设置
 	QGroupBox* hotkeyGroup = new QGroupBox(trc("MainWindow", "Hotkey Settings"));
 	hotkeyGroup->setObjectName("hotkeyGroup");
-	QFormLayout* hotkeyLayout = new QFormLayout(hotkeyGroup);
+	QVBoxLayout* hotkeyLayout = new QVBoxLayout(hotkeyGroup);
 
-	// 最小化热键设置
-	minimizeHotkeyEdit = new QLineEdit();
-	minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Click to set hotkey"));
-	minimizeHotkeyEdit->setReadOnly(true);
+	// 创建热键表格
+	hotkeyTable = new QTableWidget();
+	hotkeyTable->setColumnCount(3);
+	hotkeyTable->setHorizontalHeaderLabels({
+		trc("MainWindow", "Action"),
+		trc("MainWindow", "Description"),
+		trc("MainWindow", "Hotkey")
+										   });
 
-	setMinimizeHotkeyButton = new QPushButton(trc("MainWindow", "Set Hotkey"));
-	QPushButton* clearMinimizeHotkeyButton = new QPushButton(trc("MainWindow", "Clear"));
-	clearMinimizeHotkeyButton->setObjectName("clearMinimizeHotkeyButton");
+	// 表格属性
+	hotkeyTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+	hotkeyTable->setSelectionMode(QAbstractItemView::SingleSelection);
+	hotkeyTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+	hotkeyTable->verticalHeader()->setVisible(false);
+	hotkeyTable->setShowGrid(false);
+	hotkeyTable->setAlternatingRowColors(true);
 
-	QHBoxLayout* minimizeHotkeyLayout = new QHBoxLayout();
-	minimizeHotkeyLayout->addWidget(minimizeHotkeyEdit);
-	minimizeHotkeyLayout->addWidget(setMinimizeHotkeyButton);
-	minimizeHotkeyLayout->addWidget(clearMinimizeHotkeyButton);
+	// 列宽设置
+	hotkeyTable->setColumnWidth(0, 120);  // 动作ID
+	hotkeyTable->setColumnWidth(1, 200);  // 描述
+	hotkeyTable->setColumnWidth(2, 150);  // 热键
+	hotkeyTable->horizontalHeader()->setStretchLastSection(true);
 
-	QLabel* minimizeHotkeyLabel = new QLabel(trc("MainWindow", "Minimize to Tray Icon:"));
-	minimizeHotkeyLabel->setObjectName("minimizeHotkeyLabel");
+	// 按钮布局
+	QHBoxLayout* buttonLayout = new QHBoxLayout();
+	bindHotkeyButton = new QPushButton(trc("MainWindow", "Bind Hotkey"));
+	clearHotkeyButton = new QPushButton(trc("MainWindow", "Clear Hotkey"));
 
-	hotkeyLayout->addRow(minimizeHotkeyLabel, minimizeHotkeyLayout);
+	bindHotkeyButton->setEnabled(false);
+	clearHotkeyButton->setEnabled(false);
 
-	connect(setMinimizeHotkeyButton, &QPushButton::clicked, this, &MainWindow::startSetMinimizeHotkey);
-	connect(clearMinimizeHotkeyButton, &QPushButton::clicked, this, &MainWindow::clearMinimizeHotkey);
+	buttonLayout->addWidget(bindHotkeyButton);
+	buttonLayout->addWidget(clearHotkeyButton);
+	buttonLayout->addStretch();
 
-	QLabel* maxWindowsLabel = new QLabel(trc("MainWindow", "Maximum hidden windows:"));
-	maxWindowsLabel->setObjectName("maxWindowsLabel");
+	// 组装布局
+	hotkeyLayout->addWidget(hotkeyTable);
+	hotkeyLayout->addLayout(buttonLayout);
 
 	QLabel* languageLabel = new QLabel(trc("MainWindow", "Language:"));
 	languageLabel->setObjectName("languageLabel");
@@ -400,33 +416,32 @@ void MainWindow::setupConnections()
 	connect(languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onLanguageChanged);
 	connect(startWithSystemCheck, &QCheckBox::stateChanged, this, &MainWindow::onStartWithSystemChanged);
 	connect(alwaysOnTopCheck, &QCheckBox::stateChanged, this, &MainWindow::onAlwaysOnTopChanged);
+	connect(bindHotkeyButton, &QPushButton::clicked, this, &MainWindow::startBindHotkey);
+	connect(clearHotkeyButton, &QPushButton::clicked, this, &MainWindow::clearSelectedHotkey);
+	connect(hotkeyTable, &QTableWidget::itemDoubleClicked, this, &MainWindow::onHotkeyItemDoubleClicked);
 }
 
 void MainWindow::restoreSelectedWindow()
 {
 	HWND hwnd = getSelectedWindow();
-	if (!hwnd)
-	{
+	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
 								 trc("MainWindow", "Please select a window to restore"));
 		return;
 	}
 
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
 							 trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
 		return;
 	}
 
-	if (WindowsTrayManager::instance().restoreWindow(hwnd))
-	{
+	if (WindowsTrayManager::instance().restoreWindow(hwnd)) {
 		refreshAllLists();
 		updateTrayMenu();
 	}
-	else
-	{
+	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
 							 trc("MainWindow", "Failed to restore the window"));
 	}
@@ -439,10 +454,8 @@ void MainWindow::restoreAllWindows()
 
 	// 恢复应用托盘菜单隐藏的窗口
 	QList<HWND> appTrayWindows = m_appTrayWindows.keys();
-	for (HWND hwnd : appTrayWindows)
-	{
-		if (hwnd && IsWindow(hwnd))
-		{
+	for (HWND hwnd : appTrayWindows) {
+		if (hwnd && IsWindow(hwnd)) {
 			ShowWindow(hwnd, SW_SHOW);
 			SetForegroundWindow(hwnd);
 		}
@@ -457,8 +470,7 @@ void MainWindow::restoreAllWindows()
 
 void MainWindow::showAbout()
 {
-	if (aboutLabel)
-	{
+	if (aboutLabel) {
 		QString aboutText = QString(
 			"<h3>%1</h3>"
 			"<p><b>%2:</b> 1.0.0</p>"
@@ -487,10 +499,8 @@ QString MainWindow::trc(const char* context, const char* source) const
 void MainWindow::minimizeActiveToTray()
 {
 	HWND foregroundWindow = GetForegroundWindow();
-	if (foregroundWindow && foregroundWindow != (HWND)winId())
-	{
-		if (WindowsTrayManager::instance().minimizeWindowToTray(foregroundWindow))
-		{
+	if (foregroundWindow && foregroundWindow != (HWND)winId()) {
+		if (WindowsTrayManager::instance().minimizeWindowToTray(foregroundWindow)) {
 			m_hiddenWindowOrder.removeAll(foregroundWindow);
 			m_hiddenWindowOrder.prepend(foregroundWindow);
 
@@ -509,8 +519,7 @@ void MainWindow::showWindow()
 	activateWindow();
 	refreshAllLists();
 
-	if (autoRefreshCheck->isChecked() && refreshTimer && !refreshTimer->isActive())
-	{
+	if (autoRefreshCheck->isChecked() && refreshTimer && !refreshTimer->isActive()) {
 		refreshTimer->start(refreshIntervalSpin->value());
 	}
 }
@@ -523,8 +532,7 @@ void MainWindow::closeApp()
 
 void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 {
-	switch (reason)
-	{
+	switch (reason) {
 		case QSystemTrayIcon::Trigger:
 		case QSystemTrayIcon::DoubleClick:
 			showWindow();
@@ -538,21 +546,17 @@ void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
-	if (trayIcon && trayIcon->isVisible())
-	{
+	if (trayIcon && trayIcon->isVisible()) {
 		hide();
 		event->ignore();
 		// 隐藏时停止定时器以节省资源
-		if (refreshTimer && refreshTimer->isActive())
-		{
+		if (refreshTimer && refreshTimer->isActive()) {
 			refreshTimer->stop();
 		}
 	}
-	else
-	{
+	else {
 		WindowsTrayManager::instance().shutdown();
-		if (refreshTimer)
-		{
+		if (refreshTimer) {
 			refreshTimer->stop();
 		}
 		QMainWindow::closeEvent(event);
@@ -613,8 +617,7 @@ void MainWindow::loadSettings()
 	QString configPath = getConfigPath();
 
 	// 创建默认配置
-	if (!QFile::exists(configPath))
-	{
+	if (!QFile::exists(configPath)) {
 		createDefaultConfig();
 	}
 
@@ -634,8 +637,7 @@ void MainWindow::loadSettings()
 
 	QString language = settings.value("general/language", "zh").toString();
 	int index = languageCombo->findData(language);
-	if (index >= 0)
-	{
+	if (index >= 0) {
 		languageCombo->setCurrentIndex(index);
 	}
 
@@ -644,6 +646,8 @@ void MainWindow::loadSettings()
 	autoRefreshCheck->setChecked(autoRefresh);
 	int refreshInterval = settings.value("refresh/interval", 500).toInt();
 	refreshIntervalSpin->setValue(refreshInterval);
+
+	loadHotkeySettings();
 
 	// 应用加载的设置
 	onRefreshSettingChanged();    // 应用刷新设置
@@ -676,15 +680,13 @@ void MainWindow::saveSettings()
 void MainWindow::hideSelectedToTray()
 {
 	HWND hwnd = getSelectedWindow();
-	if (!hwnd)
-	{
+	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
 								 trc("MainWindow", "Please select a window to hide"));
 		return;
 	}
 
-	if (WindowsTrayManager::instance().minimizeWindowToTray(hwnd))
-	{
+	if (WindowsTrayManager::instance().minimizeWindowToTray(hwnd)) {
 		// 记录隐藏顺序
 		m_hiddenWindowOrder.removeAll(hwnd);  // 先移除（如果已存在）
 		m_hiddenWindowOrder.prepend(hwnd);    // 添加到开头（最近隐藏的）
@@ -695,8 +697,7 @@ void MainWindow::hideSelectedToTray()
 		QMessageBox::information(this, trc("MainWindow", "Success"),
 								 trc("MainWindow", "Window hidden to tray successfully"));
 	}
-	else
-	{
+	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
 							 trc("MainWindow", "Failed to hide window to tray"));
 	}
@@ -764,18 +765,15 @@ void MainWindow::createContextMenu()
 void MainWindow::onTableContextMenu(const QPoint& pos)
 {
 	// 临时停止自动刷新
-	if (refreshTimer && refreshTimer->isActive())
-	{
+	if (refreshTimer && refreshTimer->isActive()) {
 		refreshTimer->stop();
 	}
 
 	// 获取点击位置对应的行
 	int row = windowsTable->rowAt(pos.y());
-	if (row < 0 || row >= windowsTable->rowCount())
-	{
+	if (row < 0 || row >= windowsTable->rowCount()) {
 		// 恢复计时器
-		if (refreshTimer && autoRefreshCheck->isChecked())
-		{
+		if (refreshTimer && autoRefreshCheck->isChecked()) {
 			refreshTimer->start(refreshIntervalSpin->value());
 		}
 		return;
@@ -786,22 +784,18 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 
 	// 获取 HWND 数据
 	QTableWidgetItem* hwndItem = windowsTable->item(row, 0);
-	if (!hwndItem)
-	{
+	if (!hwndItem) {
 		// 恢复计时器
-		if (refreshTimer && autoRefreshCheck->isChecked())
-		{
+		if (refreshTimer && autoRefreshCheck->isChecked()) {
 			refreshTimer->start(refreshIntervalSpin->value());
 		}
 		return;
 	}
 
 	HWND hwnd = reinterpret_cast<HWND>(hwndItem->data(Qt::UserRole).toULongLong());
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		// 恢复计时器
-		if (refreshTimer && autoRefreshCheck->isChecked())
-		{
+		if (refreshTimer && autoRefreshCheck->isChecked()) {
 			refreshTimer->start(refreshIntervalSpin->value());
 		}
 		return;
@@ -815,10 +809,8 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 	// 根据窗口状态更新菜单项
 	bool isHidden = false;
 	auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
-	for (const auto& hidden : hiddenWindows)
-	{
-		if (hidden.first == hwnd)
-		{
+	for (const auto& hidden : hiddenWindows) {
+		if (hidden.first == hwnd) {
 			isHidden = true;
 			break;
 		}
@@ -833,8 +825,7 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 
 	toggleOnTopAction->setChecked(isOnTop);
 
-	if (row >= 0)
-	{
+	if (row >= 0) {
 		HWND hwnd = reinterpret_cast<HWND>(windowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
 		BYTE curAlpha = 255;
 		if (hwnd && IsWindow(hwnd))
@@ -846,8 +837,7 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 	contextMenu->exec(windowsTable->viewport()->mapToGlobal(pos));
 
 	// 恢复自动刷新
-	if (refreshTimer && autoRefreshCheck->isChecked())
-	{
+	if (refreshTimer && autoRefreshCheck->isChecked()) {
 		refreshTimer->start(refreshIntervalSpin->value());
 	}
 }
@@ -859,30 +849,25 @@ void MainWindow::refreshWindowsTable()
 	// 检查窗口列表是否发生变化
 	bool needsRefresh = false;
 
-	if (currentWindowsInfo.size() != m_lastWindowsInfo.size())
-	{
+	if (currentWindowsInfo.size() != m_lastWindowsInfo.size()) {
 		needsRefresh = true;
 	}
-	else
-	{
+	else {
 		// 检查窗口状态是否有变化
-		for (int i = 0; i < currentWindowsInfo.size(); ++i)
-		{
+		for (int i = 0; i < currentWindowsInfo.size(); ++i) {
 			if (currentWindowsInfo[i].first != m_lastWindowsInfo[i].first ||
 				currentWindowsInfo[i].second.isHidden != m_lastWindowsInfo[i].second.isHidden ||
 				currentWindowsInfo[i].second.title != m_lastWindowsInfo[i].second.title ||
 				currentWindowsInfo[i].second.processName != m_lastWindowsInfo[i].second.processName ||
 				currentWindowsInfo[i].second.className != m_lastWindowsInfo[i].second.className ||
-				currentWindowsInfo[i].second.processId != m_lastWindowsInfo[i].second.processId)
-			{
+				currentWindowsInfo[i].second.processId != m_lastWindowsInfo[i].second.processId) {
 				needsRefresh = true;
 				break;
 			}
 		}
 	}
 
-	if (!needsRefresh)
-	{
+	if (!needsRefresh) {
 		return; // 没有变化，不刷新
 	}
 
@@ -903,15 +888,13 @@ void MainWindow::refreshWindowsTable()
 		trc("MainWindow", "Process")
 											});
 
-	for (const auto& window : currentWindowsInfo)
-	{
+	for (const auto& window : currentWindowsInfo) {
 		int row = windowsTable->rowCount();
 		windowsTable->insertRow(row);
 
 		// 图标
 		QTableWidgetItem* iconItem = new QTableWidgetItem();
-		if (!window.second.icon.isNull())
-		{
+		if (!window.second.icon.isNull()) {
 			iconItem->setIcon(window.second.icon);
 		}
 		iconItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(window.second.hwnd));
@@ -941,20 +924,16 @@ void MainWindow::refreshWindowsTable()
 		windowsTable->setItem(row, 5, processItem);  // 进程名
 
 		// 隐藏窗口显示为灰色
-		if (window.second.isHidden)
-		{
-			for (int col = 0; col < 6; ++col)
-			{
-				if (auto item = windowsTable->item(row, col))
-				{
+		if (window.second.isHidden) {
+			for (int col = 0; col < 6; ++col) {
+				if (auto item = windowsTable->item(row, col)) {
 					item->setForeground(Qt::gray);
 				}
 			}
 		}
 
 		// 恢复选中状态
-		if (window.second.hwnd == previouslySelectedHwnd)
-		{
+		if (window.second.hwnd == previouslySelectedHwnd) {
 			windowsTable->setCurrentCell(row, 0);
 		}
 	}
@@ -981,8 +960,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 	// 获取所有隐藏窗口
 	auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
 	QSet<HWND> hiddenSet;
-	for (const auto& hidden : hiddenWindows)
-	{
+	for (const auto& hidden : hiddenWindows) {
 		hiddenSet.insert(hidden.first);
 	}
 
@@ -1003,26 +981,22 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 
 		// 过滤条件
 		// 1.窗口有效性
-		if (!IsWindow(hwnd) || !IsWindowVisible(hwnd))
-		{
+		if (!IsWindow(hwnd) || !IsWindowVisible(hwnd)) {
 			return TRUE;
 		}
 		// 2.非自身进程
 		DWORD processId;
 		GetWindowThreadProcessId(hwnd, &processId);
-		if (processId == currentProcessId)
-		{
+		if (processId == currentProcessId) {
 			return TRUE;
 		}
 		// 3.标题非空
 		LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-		if (exStyle & WS_EX_TOOLWINDOW)
-		{
+		if (exStyle & WS_EX_TOOLWINDOW) {
 			return TRUE;
 		}
 		// 4.非删除标记
-		if (GetProp(hwnd, L"ITaskList_Deleted"))
-		{
+		if (GetProp(hwnd, L"ITaskList_Deleted")) {
 			return TRUE;
 		}
 		// 5.所有者关系和可激活性
@@ -1030,13 +1004,11 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 		bool hasOwner = (owner != nullptr);
 		bool isAppWindow = (exStyle & WS_EX_APPWINDOW);
 
-		if (hasOwner && !isAppWindow)
-		{
+		if (hasOwner && !isAppWindow) {
 			return TRUE;
 		}
 
-		if ((exStyle & WS_EX_NOACTIVATE) && !isAppWindow)
-		{
+		if ((exStyle & WS_EX_NOACTIVATE) && !isAppWindow) {
 			return TRUE;
 		}
 
@@ -1048,8 +1020,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 		if (windowClass == "ApplicationFrameWindow" ||
 			windowClass == "Windows.UI.Core.CoreWindow" ||
 			windowClass == "StartMenuSizingFrame" ||
-			windowClass == "Shell_LightDismissOverlay")
-		{
+			windowClass == "Shell_LightDismissOverlay") {
 			return TRUE;
 		}
 
@@ -1058,8 +1029,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 		wchar_t processName[MAX_PATH] = L"";
 		QString processNameStr = "Unknown";
 
-		if (process)
-		{
+		if (process) {
 			GetModuleFileNameEx(process, NULL, processName, MAX_PATH);
 			processNameStr = QFileInfo(QString::fromWCharArray(processName)).fileName();
 			CloseHandle(process);
@@ -1068,31 +1038,24 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 		// 获取窗口图标
 		QIcon windowIcon;
 		HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
-		if (!hIcon)
-		{
+		if (!hIcon) {
 			hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
 		}
-		if (!hIcon)
-		{
+		if (!hIcon) {
 			hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0);
 		}
-		if (!hIcon)
-		{
+		if (!hIcon) {
 			hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON);
 		}
 
 		// 如果仍然没有图标，尝试从进程获取
-		if (!hIcon && processId)
-		{
+		if (!hIcon && processId) {
 			HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-			if (hProcess)
-			{
+			if (hProcess) {
 				wchar_t exePath[MAX_PATH];
-				if (GetModuleFileNameEx(hProcess, NULL, exePath, MAX_PATH))
-				{
+				if (GetModuleFileNameEx(hProcess, NULL, exePath, MAX_PATH)) {
 					HICON hAppIcon = ExtractIcon(GetModuleHandle(NULL), exePath, 0);
-					if (hAppIcon)
-					{
+					if (hAppIcon) {
 						hIcon = hAppIcon;
 					}
 				}
@@ -1101,16 +1064,14 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 		}
 
 		// 如果获取到图标，转换为QIcon
-		if (hIcon)
-		{
+		if (hIcon) {
 			windowIcon = QIcon(QPixmap::fromImage(QImage::fromHICON(hIcon)));
 
 			// 清理系统图标资源（如果是我们自己提取的）
 			if (hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0) &&
 				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM) &&
 				hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0) &&
-				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICON))
-			{
+				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICON)) {
 				DestroyIcon(hIcon);
 			}
 		}
@@ -1130,10 +1091,8 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 				}, reinterpret_cast<LPARAM>(&windows));
 
 	// 标记隐藏窗口
-	for (auto& window : windows)
-	{
-		if (hiddenSet.contains(window.first))
-		{
+	for (auto& window : windows) {
+		if (hiddenSet.contains(window.first)) {
 			window.second.isHidden = true;
 		}
 	}
@@ -1152,8 +1111,7 @@ HWND MainWindow::getSelectedWindow() const
 void MainWindow::bringToFront()
 {
 	HWND hwnd = getSelectedWindow();
-	if (hwnd)
-	{
+	if (hwnd) {
 		ShowWindow(hwnd, SW_RESTORE);
 		SetForegroundWindow(hwnd);
 	}
@@ -1162,14 +1120,12 @@ void MainWindow::bringToFront()
 void MainWindow::endTask()
 {
 	HWND hwnd = getSelectedWindow();
-	if (hwnd)
-	{
+	if (hwnd) {
 		DWORD processId;
 		GetWindowThreadProcessId(hwnd, &processId);
 
 		HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, processId);
-		if (process)
-		{
+		if (process) {
 			TerminateProcess(process, 0);
 			CloseHandle(process);
 			refreshAllLists();
@@ -1188,12 +1144,10 @@ void MainWindow::loadLanguage(const QString& language)
 {
 	QString appDir = QCoreApplication::applicationDirPath();
 	QString langFile = QString("%1/language/%2.lang").arg(appDir).arg(language);
-	if (!Translator::instance().loadLanguage(langFile))
-	{
+	if (!Translator::instance().loadLanguage(langFile)) {
 		// 如果指定语言文件加载失败，尝试加载默认语言
 		QString defaultLangFile = QString("%1/language/zh.lang").arg(appDir);
-		if (!Translator::instance().loadLanguage(defaultLangFile))
-		{
+		if (!Translator::instance().loadLanguage(defaultLangFile)) {
 			qWarning() << "Failed to load default language file:" << defaultLangFile;
 		}
 	}
@@ -1234,8 +1188,7 @@ void MainWindow::retranslateUI()
 	tabWidget->setTabText(3, trc("MainWindow", "About"));
 
 	// 托盘菜单
-	if (trayIcon)
-	{
+	if (trayIcon) {
 		showAction->setText(trc("MainWindow", "Open Main Window"));
 		restoreLastAction->setText(trc("MainWindow", "Restore Last Window"));
 		restoreAllAction->setText(trc("MainWindow", "Restore All Windows"));
@@ -1246,16 +1199,13 @@ void MainWindow::retranslateUI()
 	updateTrayMenuLayout();
 	// 设置页面
 	// 组标题
-	if (auto generalGroup = findChild<QGroupBox*>("generalGroup"))
-	{
+	if (auto generalGroup = findChild<QGroupBox*>("generalGroup")) {
 		generalGroup->setTitle(trc("MainWindow", "General Settings"));
 	}
-	if (auto refreshGroup = findChild<QGroupBox*>("refreshGroup"))
-	{
+	if (auto refreshGroup = findChild<QGroupBox*>("refreshGroup")) {
 		refreshGroup->setTitle(trc("MainWindow", "Auto Refresh Settings"));
 	}
-	if (auto windowGroup = findChild<QGroupBox*>("windowGroup"))
-	{
+	if (auto windowGroup = findChild<QGroupBox*>("windowGroup")) {
 		windowGroup->setTitle(trc("MainWindow", "Window Settings"));
 	}
 
@@ -1266,32 +1216,26 @@ void MainWindow::retranslateUI()
 	alwaysOnTopCheck->setText(trc("MainWindow", "Always on Top"));
 
 	// 表单标签
-	if (auto refreshLabel = findChild<QLabel*>("refreshIntervalLabel"))
-	{
+	if (auto refreshLabel = findChild<QLabel*>("refreshIntervalLabel")) {
 		refreshLabel->setText(trc("MainWindow", "Refresh interval:"));
 	}
-	if (auto maxWindowsLabel = findChild<QLabel*>("maxWindowsLabel"))
-	{
+	if (auto maxWindowsLabel = findChild<QLabel*>("maxWindowsLabel")) {
 		maxWindowsLabel->setText(trc("MainWindow", "Maximum hidden windows:"));
 	}
-	if (auto languageLabel = findChild<QLabel*>("languageLabel"))
-	{
+	if (auto languageLabel = findChild<QLabel*>("languageLabel")) {
 		languageLabel->setText(trc("MainWindow", "Language:"));
 	}
 
 	// 关于页面
-	if (auto aboutTitle = findChild<QLabel*>("aboutTitle"))
-	{
+	if (auto aboutTitle = findChild<QLabel*>("aboutTitle")) {
 		aboutTitle->setText(trc("MainWindow", "About"));
 	}
 
 	// 关于页面按钮
-	if (auto githubButton = findChild<QPushButton*>("githubButton"))
-	{
+	if (auto githubButton = findChild<QPushButton*>("githubButton")) {
 		githubButton->setText(trc("MainWindow", "Visit GitHub Repository"));
 	}
-	if (auto checkUpdateButton = findChild<QPushButton*>("checkUpdateButton"))
-	{
+	if (auto checkUpdateButton = findChild<QPushButton*>("checkUpdateButton")) {
 		checkUpdateButton->setText(trc("MainWindow", "Check for Updates"));
 	}
 
@@ -1299,8 +1243,7 @@ void MainWindow::retranslateUI()
 	showAbout();
 
 	// 右键菜单
-	if (contextMenu)
-	{
+	if (contextMenu) {
 		hideToTrayAction->setText(trc("MainWindow", "Hide to Tray Icon"));
 		hideToAppTrayAction->setText(trc("MainWindow", "Hide to Tray Menu"));
 		bringToFrontAction->setText(trc("MainWindow", "Bring to Front"));
@@ -1314,34 +1257,36 @@ void MainWindow::retranslateUI()
 	}
 
 	// 隐藏窗口表格右键菜单
-	if (hiddenTableContextMenu)
-	{
+	if (hiddenTableContextMenu) {
 		restoreHiddenAction->setText(trc("MainWindow", "Restore Window"));
 		restoreLastHiddenAction->setText(trc("MainWindow", "Restore Last Window"));
 		restoreAllHiddenAction->setText(trc("MainWindow", "Restore All Windows"));
 	}
 
-	// 热键设置组标题
-	if (auto hotkeyGroup = findChild<QGroupBox*>("hotkeyGroup"))
-	{
+	// 热键表格标题
+	if (hotkeyTable) {
+		hotkeyTable->setHorizontalHeaderLabels({
+			trc("MainWindow", "Action"),
+			trc("MainWindow", "Description"),
+			trc("MainWindow", "Hotkey")
+											   });
+	}
+
+	// 热键组标题
+	if (auto hotkeyGroup = findChild<QGroupBox*>("hotkeyGroup")) {
 		hotkeyGroup->setTitle(trc("MainWindow", "Hotkey Settings"));
 	}
 
-	// 热键标签
-	if (auto minimizeHotkeyLabel = findChild<QLabel*>("minimizeHotkeyLabel"))
-	{
-		minimizeHotkeyLabel->setText(trc("MainWindow", "Minimize to Tray Icon:"));
+	// 按钮文本
+	if (bindHotkeyButton) {
+		bindHotkeyButton->setText(trc("MainWindow", "Bind Hotkey"));
+	}
+	if (clearHotkeyButton) {
+		clearHotkeyButton->setText(trc("MainWindow", "Clear Hotkey"));
 	}
 
-	// 更新热键相关控件
-	setMinimizeHotkeyButton->setText(trc("MainWindow", "Set Hotkey"));
-	minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Click to set hotkey"));
-
-	// 清除按钮
-	if (auto clearButton = findChild<QPushButton*>("clearMinimizeHotkeyButton"))
-	{
-		clearButton->setText(trc("MainWindow", "Clear"));
-	}
+	// 刷新热键列表的描述
+	initializeHotkeyTable();
 
 	// 刷新表格内容
 	refreshWindowsTable();
@@ -1353,12 +1298,10 @@ void MainWindow::onRefreshSettingChanged()
 	int interval = refreshIntervalSpin->value();
 
 	// 立即应用刷新设置
-	if (autoRefresh)
-	{
+	if (autoRefresh) {
 		refreshTimer->start(interval);
 	}
-	else
-	{
+	else {
 		refreshTimer->stop();
 	}
 
@@ -1374,8 +1317,7 @@ void MainWindow::onLanguageChanged()
 	QString oldLanguage = ""; // 可以从设置中获取旧值
 
 	// 立即应用语言设置
-	if (oldLanguage != newLanguage)
-	{
+	if (oldLanguage != newLanguage) {
 		loadLanguage(newLanguage);
 	}
 
@@ -1395,12 +1337,10 @@ void MainWindow::onStartWithSystemChanged()
 	QString appName = "Traynex";
 	QString appPath = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
 
-	if (startWithSystem)
-	{
+	if (startWithSystem) {
 		settings.setValue(appName, appPath);
 	}
-	else
-	{
+	else {
 		settings.remove(appName);
 	}
 
@@ -1438,8 +1378,7 @@ void MainWindow::updateWindowFlags()
 	bool currentlyOnTop = currentFlags & Qt::WindowStaysOnTopHint;
 
 	// 如果状态没有变化，不需要更新
-	if (currentlyOnTop == alwaysOnTop)
-	{
+	if (currentlyOnTop == alwaysOnTop) {
 		return;
 	}
 
@@ -1452,12 +1391,10 @@ void MainWindow::updateWindowFlags()
 	// 设置新的窗口标志
 	Qt::WindowFlags newFlags = currentFlags;
 
-	if (alwaysOnTop)
-	{
+	if (alwaysOnTop) {
 		newFlags |= Qt::WindowStaysOnTopHint;
 	}
-	else
-	{
+	else {
 		newFlags &= ~Qt::WindowStaysOnTopHint;
 	}
 
@@ -1470,8 +1407,7 @@ void MainWindow::updateWindowFlags()
 	tabWidget->setCurrentIndex(currentTab);
 
 	// 如果窗口原本是可见的，重新显示
-	if (wasVisible)
-	{
+	if (wasVisible) {
 		show();
 		// 短暂延迟后再次置顶，确保效果
 		QTimer::singleShot(10, this, [this]() {
@@ -1486,15 +1422,13 @@ void MainWindow::updateWindowFlags()
 void MainWindow::highlightWindow()
 {
 	HWND hwnd = getSelectedWindow();
-	if (!hwnd)
-	{
+	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
 								 trc("MainWindow", "Please select a window to highlight"));
 		return;
 	}
 
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
 							 trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
@@ -1507,8 +1441,7 @@ void MainWindow::highlightWindow()
 
 void MainWindow::flashWindowInTaskbar(HWND hwnd)
 {
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		return;
 	}
 
@@ -1519,8 +1452,7 @@ void MainWindow::flashWindowInTaskbar(HWND hwnd)
 
 bool MainWindow::isWindowOnTop(HWND hwnd)
 {
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		return false;
 	}
 
@@ -1531,8 +1463,7 @@ bool MainWindow::isWindowOnTop(HWND hwnd)
 
 void MainWindow::setWindowOnTop(HWND hwnd, bool onTop)
 {
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		return;
 	}
 
@@ -1549,15 +1480,13 @@ void MainWindow::setWindowOnTop(HWND hwnd, bool onTop)
 void MainWindow::toggleWindowOnTop()
 {
 	HWND hwnd = getSelectedWindow();
-	if (!hwnd)
-	{
+	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
 								 trc("MainWindow", "Please select a window to toggle always on top"));
 		return;
 	}
 
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
 							 trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
@@ -1587,11 +1516,9 @@ void MainWindow::refreshHiddenWindowsTable()
 	QMap<HWND, std::tuple<QString, QString, QString, DWORD, QIcon>> allHiddenWindows;
 
 	// 添加系统托盘隐藏窗口
-	for (const auto& window : systemHiddenWindows)
-	{
+	for (const auto& window : systemHiddenWindows) {
 		HWND hwnd = window.first;
-		if (hwnd && IsWindow(hwnd))
-		{
+		if (hwnd && IsWindow(hwnd)) {
 			// 获取进程名、类名、进程ID和图标
 			QString processName = "Unknown";
 			QString className = "Unknown";
@@ -1601,27 +1528,23 @@ void MainWindow::refreshHiddenWindowsTable()
 			GetWindowThreadProcessId(hwnd, &processId);
 
 			HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-			if (process)
-			{
+			if (process) {
 				wchar_t processPath[MAX_PATH] = L"";
-				if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH))
-				{
+				if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
 					processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
 				}
 				CloseHandle(process);
 			}
 
 			wchar_t classBuffer[256];
-			if (GetClassName(hwnd, classBuffer, 256))
-			{
+			if (GetClassName(hwnd, classBuffer, 256)) {
 				className = QString::fromWCharArray(classBuffer);
 			}
 
 			// 获取图标
 			HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
 			if (!hIcon) hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
-			if (hIcon)
-			{
+			if (hIcon) {
 				windowIcon = QIcon(QPixmap::fromImage(QImage::fromHICON(hIcon)));
 			}
 
@@ -1636,17 +1559,13 @@ void MainWindow::refreshHiddenWindowsTable()
 	}
 
 	// 添加应用托盘菜单隐藏窗口
-	for (auto it = appTrayHiddenWindows.begin(); it != appTrayHiddenWindows.end(); ++it)
-	{
+	for (auto it = appTrayHiddenWindows.begin(); it != appTrayHiddenWindows.end(); ++it) {
 		HWND hwnd = it.key();
-		if (hwnd && IsWindow(hwnd))
-		{
-			if (!allHiddenWindows.contains(hwnd))
-			{
+		if (hwnd && IsWindow(hwnd)) {
+			if (!allHiddenWindows.contains(hwnd)) {
 				wchar_t title[256];
 				QString windowTitle = trc("MainWindow", "Unknown Window");
-				if (GetWindowText(hwnd, title, 256) > 0)
-				{
+				if (GetWindowText(hwnd, title, 256) > 0) {
 					windowTitle = QString::fromWCharArray(title);
 				}
 
@@ -1658,27 +1577,23 @@ void MainWindow::refreshHiddenWindowsTable()
 				GetWindowThreadProcessId(hwnd, &processId);
 
 				HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-				if (process)
-				{
+				if (process) {
 					wchar_t processPath[MAX_PATH] = L"";
-					if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH))
-					{
+					if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
 						processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
 					}
 					CloseHandle(process);
 				}
 
 				wchar_t classBuffer[256];
-				if (GetClassName(hwnd, classBuffer, 256))
-				{
+				if (GetClassName(hwnd, classBuffer, 256)) {
 					className = QString::fromWCharArray(classBuffer);
 				}
 
 				// 获取图标
 				HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
 				if (!hIcon) hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
-				if (hIcon)
-				{
+				if (hIcon) {
 					windowIcon = QIcon(QPixmap::fromImage(QImage::fromHICON(hIcon)));
 				}
 
@@ -1688,8 +1603,7 @@ void MainWindow::refreshHiddenWindowsTable()
 	}
 
 	// 显示所有隐藏窗口
-	for (auto it = allHiddenWindows.begin(); it != allHiddenWindows.end(); ++it)
-	{
+	for (auto it = allHiddenWindows.begin(); it != allHiddenWindows.end(); ++it) {
 		HWND hwnd = it.key();
 		auto [title, processName, className, processId, icon] = it.value();
 
@@ -1698,8 +1612,7 @@ void MainWindow::refreshHiddenWindowsTable()
 
 		// 图标
 		QTableWidgetItem* iconItem = new QTableWidgetItem();
-		if (!icon.isNull())
-		{
+		if (!icon.isNull()) {
 			iconItem->setIcon(icon);
 		}
 		iconItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(hwnd));
@@ -1735,16 +1648,14 @@ void MainWindow::refreshHiddenWindowsTable()
 void MainWindow::restoreSelectedHiddenWindow()
 {
 	int row = hiddenWindowsTable->currentRow();
-	if (row < 0)
-	{
+	if (row < 0) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
 								 trc("MainWindow", "Please select a window to restore"));
 		return;
 	}
 
 	HWND hwnd = reinterpret_cast<HWND>(hiddenWindowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
 							 trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
@@ -1757,22 +1668,19 @@ void MainWindow::restoreSelectedHiddenWindow()
 	success = WindowsTrayManager::instance().restoreWindow(hwnd);
 
 	// 系统托盘恢复失败，尝试从应用托盘菜单恢复
-	if (!success && m_appTrayWindows.contains(hwnd))
-	{
+	if (!success && m_appTrayWindows.contains(hwnd)) {
 		ShowWindow(hwnd, SW_SHOW);
 		SetForegroundWindow(hwnd);
 		removeWindowFromTrayMenu(hwnd);
 		success = true;
 	}
 
-	if (success)
-	{
+	if (success) {
 		m_hiddenWindowOrder.removeAll(hwnd);
 		refreshAllLists();
 		updateTrayMenu();
 	}
-	else
-	{
+	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
 							 trc("MainWindow", "Failed to restore the window"));
 	}
@@ -1780,8 +1688,7 @@ void MainWindow::restoreSelectedHiddenWindow()
 
 void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
 {
-	if (!hiddenTableContextMenu)
-	{
+	if (!hiddenTableContextMenu) {
 		hiddenTableContextMenu = new QMenu(this);
 
 		restoreHiddenAction = new QAction(trc("MainWindow", "Restore Window"), this);
@@ -1802,8 +1709,7 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
 	int row = hiddenWindowsTable->rowAt(pos.y());
 	HWND selectedHwnd = nullptr;
 
-	if (row >= 0)
-	{
+	if (row >= 0) {
 		hiddenWindowsTable->setCurrentCell(row, 0);
 		selectedHwnd = reinterpret_cast<HWND>(hiddenWindowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
 	}
@@ -1825,8 +1731,7 @@ void MainWindow::onHiddenTableContextMenu(const QPoint& pos)
 void MainWindow::updateTrayMenu()
 {
 	// 安全检查
-	if (!trayMenu || !restoreAllAction)
-	{
+	if (!trayMenu || !restoreAllAction) {
 		return;
 	}
 
@@ -1839,15 +1744,13 @@ void MainWindow::updateTrayMenu()
 void MainWindow::hideToAppTray()
 {
 	HWND hwnd = getSelectedWindow();
-	if (!hwnd)
-	{
+	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
 								 trc("MainWindow", "Please select a window to hide"));
 		return;
 	}
 
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
 							 trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
@@ -1856,8 +1759,7 @@ void MainWindow::hideToAppTray()
 
 	// 检查是否是受保护的窗口
 	wchar_t className[256];
-	if (!GetClassName(hwnd, className, 256))
-	{
+	if (!GetClassName(hwnd, className, 256)) {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
 							 trc("MainWindow", "Cannot get window class name"));
 		return;
@@ -1870,10 +1772,8 @@ void MainWindow::hideToAppTray()
 		L"Progman"
 	};
 
-	for (const wchar_t* restricted : restrictedWindows)
-	{
-		if (wcscmp(className, restricted) == 0)
-		{
+	for (const wchar_t* restricted : restrictedWindows) {
+		if (wcscmp(className, restricted) == 0) {
 			QMessageBox::warning(this, trc("MainWindow", "Error"),
 								 trc("MainWindow", "Cannot hide system windows"));
 			return;
@@ -1908,18 +1808,15 @@ void MainWindow::hideToAppTray()
 
 void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIcon& icon)
 {
-	if (!trayMenu)
-	{
+	if (!trayMenu) {
 		qWarning() << "trayMenu is null, cannot add window";
 		return;
 	}
 
 	// 如果窗口已经存在，先移除
-	if (m_appTrayWindows.contains(hwnd))
-	{
+	if (m_appTrayWindows.contains(hwnd)) {
 		QAction* oldAction = m_appTrayWindows[hwnd];
-		if (oldAction)
-		{
+		if (oldAction) {
 			trayMenu->removeAction(oldAction);
 			oldAction->deleteLater();
 		}
@@ -1928,27 +1825,23 @@ void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIco
 
 	// 获取或创建图标
 	QIcon windowIcon = icon;
-	if (windowIcon.isNull())
-	{
+	if (windowIcon.isNull()) {
 		windowIcon = getWindowIcon(hwnd);
 	}
 
 	// 如果仍然没有图标，使用默认图标
-	if (windowIcon.isNull())
-	{
+	if (windowIcon.isNull()) {
 		windowIcon = QApplication::style()->standardIcon(QStyle::SP_ComputerIcon);
 	}
 
 	// 创建显示标题
 	QString displayTitle = title;
-	if (displayTitle.isEmpty())
-	{
+	if (displayTitle.isEmpty()) {
 		displayTitle = trc("MainWindow", "Unknown Window");
 	}
 
 	// 限制标题长度
-	if (displayTitle.length() > 40)
-	{
+	if (displayTitle.length() > 40) {
 		displayTitle = displayTitle.left(37) + "...";
 	}
 
@@ -1967,11 +1860,9 @@ void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIco
 	QString processName = "Unknown";
 
 	HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-	if (process)
-	{
+	if (process) {
 		wchar_t processPath[MAX_PATH] = L"";
-		if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH))
-		{
+		if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
 			processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
 		}
 		CloseHandle(process);
@@ -1998,16 +1889,13 @@ void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIco
 
 void MainWindow::removeWindowFromTrayMenu(HWND hwnd)
 {
-	if (!trayMenu)
-	{
+	if (!trayMenu) {
 		return;
 	}
 
-	if (m_appTrayWindows.contains(hwnd))
-	{
+	if (m_appTrayWindows.contains(hwnd)) {
 		QAction* action = m_appTrayWindows[hwnd];
-		if (action)
-		{
+		if (action) {
 			trayMenu->removeAction(action);
 			action->deleteLater();
 		}
@@ -2018,8 +1906,7 @@ void MainWindow::removeWindowFromTrayMenu(HWND hwnd)
 
 void MainWindow::updateTrayMenuLayout()
 {
-	if (!trayMenu)
-	{
+	if (!trayMenu) {
 		qWarning() << "trayMenu is null!";
 		return;
 	}
@@ -2031,16 +1918,12 @@ void MainWindow::updateTrayMenuLayout()
 	int firstSeparatorIndex = -1;
 	int secondSeparatorIndex = -1;
 
-	for (int i = 0; i < actions.size(); ++i)
-	{
-		if (actions[i]->isSeparator())
-		{
-			if (firstSeparatorIndex == -1)
-			{
+	for (int i = 0; i < actions.size(); ++i) {
+		if (actions[i]->isSeparator()) {
+			if (firstSeparatorIndex == -1) {
 				firstSeparatorIndex = i;
 			}
-			else if (secondSeparatorIndex == -1)
-			{
+			else if (secondSeparatorIndex == -1) {
 				secondSeparatorIndex = i;
 				break;
 			}
@@ -2048,18 +1931,15 @@ void MainWindow::updateTrayMenuLayout()
 	}
 
 	// 移除第一个分隔符和第二个分隔符之间的所有动作
-	if (firstSeparatorIndex != -1 && secondSeparatorIndex != -1)
-	{
-		for (int i = secondSeparatorIndex - 1; i > firstSeparatorIndex; --i)
-		{
+	if (firstSeparatorIndex != -1 && secondSeparatorIndex != -1) {
+		for (int i = secondSeparatorIndex - 1; i > firstSeparatorIndex; --i) {
 			QAction* action = actions[i];
 			// 只移除不是固定动作的项
 			if (action != showAction &&
 				action != restoreLastAction &&
 				action != restoreAllAction &&
 				action != quitAction &&
-				!action->isSeparator())
-			{
+				!action->isSeparator()) {
 				trayMenu->removeAction(action);
 			}
 		}
@@ -2067,16 +1947,13 @@ void MainWindow::updateTrayMenuLayout()
 
 	// 清理无效的窗口
 	QList<HWND> windowsToRemove;
-	for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it)
-	{
+	for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it) {
 		HWND hwnd = it.key();
 		QAction* action = it.value();
 
-		if (!hwnd || !IsWindow(hwnd))
-		{
+		if (!hwnd || !IsWindow(hwnd)) {
 			windowsToRemove.append(hwnd);
-			if (action)
-			{
+			if (action) {
 				trayMenu->removeAction(action);
 				action->deleteLater();
 			}
@@ -2084,41 +1961,33 @@ void MainWindow::updateTrayMenuLayout()
 	}
 
 	// 移除无效窗口
-	for (HWND hwnd : windowsToRemove)
-	{
+	for (HWND hwnd : windowsToRemove) {
 		m_appTrayWindows.remove(hwnd);
 	}
 
 	// 如果有隐藏窗口，在第一个分隔符后添加它们
-	if (!m_appTrayWindows.isEmpty())
-	{
+	if (!m_appTrayWindows.isEmpty()) {
 		QList<QAction*> actions = trayMenu->actions();
 		int targetSeparatorIndex = -1;
 		int separatorCount = 0;
 
-		for (int i = 0; i < actions.size(); ++i)
-		{
-			if (actions[i]->isSeparator())
-			{
+		for (int i = 0; i < actions.size(); ++i) {
+			if (actions[i]->isSeparator()) {
 				separatorCount++;
-				if (separatorCount == 2)
-				{ // 第二个分隔符
+				if (separatorCount == 2) { // 第二个分隔符
 					targetSeparatorIndex = i;
 					break;
 				}
 			}
 		}
 
-		if (targetSeparatorIndex != -1)
-		{
+		if (targetSeparatorIndex != -1) {
 			// 在第二个分隔符之前添加隐藏窗口
-			for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it)
-			{
+			for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it) {
 				HWND hwnd = it.key();
 				QAction* action = it.value();
 
-				if (hwnd && IsWindow(hwnd) && action)
-				{
+				if (hwnd && IsWindow(hwnd) && action) {
 					trayMenu->insertAction(actions[targetSeparatorIndex], action);
 				}
 			}
@@ -2133,8 +2002,7 @@ void MainWindow::updateTrayMenuLayout()
 void MainWindow::restoreWindowFromAppTray()
 {
 	QAction* action = qobject_cast<QAction*>(sender());
-	if (!action)
-	{
+	if (!action) {
 		return;
 	}
 
@@ -2143,8 +2011,7 @@ void MainWindow::restoreWindowFromAppTray()
 	HWND hwnd = reinterpret_cast<HWND>(windowData["hwnd"].toULongLong());
 	QString title = windowData["title"].toString();
 
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
 							 trc("MainWindow", "The selected window is no longer available"));
 		removeWindowFromTrayMenu(hwnd);
@@ -2171,8 +2038,7 @@ void MainWindow::restoreWindowFromAppTray()
 
 void MainWindow::restoreLastWindow()
 {
-	if (m_hiddenWindowOrder.isEmpty())
-	{
+	if (m_hiddenWindowOrder.isEmpty()) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
 								 trc("MainWindow", "No hidden windows to restore"));
 		return;
@@ -2181,8 +2047,7 @@ void MainWindow::restoreLastWindow()
 	// 获取最近隐藏的窗口
 	HWND lastHwnd = m_hiddenWindowOrder.takeFirst();  // 从列表中移除
 
-	if (!lastHwnd || !IsWindow(lastHwnd))
-	{
+	if (!lastHwnd || !IsWindow(lastHwnd)) {
 		// 如果窗口无效，递归尝试下一个
 		m_hiddenWindowOrder.removeAll(lastHwnd);
 		restoreLastWindow();
@@ -2195,29 +2060,25 @@ void MainWindow::restoreLastWindow()
 	success = WindowsTrayManager::instance().restoreWindow(lastHwnd);
 
 	// 系统托盘恢复失败，尝试从应用托盘菜单恢复
-	if (!success && m_appTrayWindows.contains(lastHwnd))
-	{
+	if (!success && m_appTrayWindows.contains(lastHwnd)) {
 		ShowWindow(lastHwnd, SW_SHOW);
 		SetForegroundWindow(lastHwnd);
 		removeWindowFromTrayMenu(lastHwnd);
 		success = true;
 	}
 
-	if (success)
-	{
+	if (success) {
 		refreshAllLists();
 		updateTrayMenu();
 
 		// 显示成功消息
 		wchar_t title[256];
-		if (GetWindowText(lastHwnd, title, 256) > 0)
-		{
+		if (GetWindowText(lastHwnd, title, 256) > 0) {
 			QMessageBox::information(this, trc("MainWindow", "Success"),
 									 trc("MainWindow", "Restored window: %1").arg(QString::fromWCharArray(title)));
 		}
 	}
-	else
-	{
+	else {
 		// 恢复失败，将窗口重新放回列表开头
 		m_hiddenWindowOrder.prepend(lastHwnd);
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
@@ -2227,8 +2088,7 @@ void MainWindow::restoreLastWindow()
 
 QIcon MainWindow::getWindowIcon(HWND hwnd) const
 {
-	if (!hwnd || !IsWindow(hwnd))
-	{
+	if (!hwnd || !IsWindow(hwnd)) {
 		return QIcon();
 	}
 
@@ -2238,37 +2098,30 @@ QIcon MainWindow::getWindowIcon(HWND hwnd) const
 	HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
 
 	// 尝试获取窗口类的小图标
-	if (!hIcon)
-	{
+	if (!hIcon) {
 		hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
 	}
 
 	// 尝试获取窗口的大图标
-	if (!hIcon)
-	{
+	if (!hIcon) {
 		hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0);
 	}
 
 	// 尝试获取窗口类的大图标
-	if (!hIcon)
-	{
+	if (!hIcon) {
 		hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON);
 	}
 
 	// 从进程文件获取图标
-	if (!hIcon)
-	{
+	if (!hIcon) {
 		DWORD processId;
 		GetWindowThreadProcessId(hwnd, &processId);
 
-		if (processId)
-		{
+		if (processId) {
 			HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-			if (hProcess)
-			{
+			if (hProcess) {
 				wchar_t exePath[MAX_PATH];
-				if (GetModuleFileNameEx(hProcess, NULL, exePath, MAX_PATH))
-				{
+				if (GetModuleFileNameEx(hProcess, NULL, exePath, MAX_PATH)) {
 					// 提取第一个图标
 					hIcon = ExtractIcon(GetModuleHandle(NULL), exePath, 0);
 				}
@@ -2278,17 +2131,14 @@ QIcon MainWindow::getWindowIcon(HWND hwnd) const
 	}
 
 	// 使用默认应用程序图标
-	if (!hIcon)
-	{
+	if (!hIcon) {
 		hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	}
 
 	// 将 HICON 转换为 QIcon
-	if (hIcon)
-	{
+	if (hIcon) {
 		QPixmap pixmap = QPixmap::fromImage(QImage::fromHICON(hIcon));
-		if (!pixmap.isNull())
-		{
+		if (!pixmap.isNull()) {
 			windowIcon = QIcon(pixmap);
 
 			// 清理提取的图标资源
@@ -2296,8 +2146,7 @@ QIcon MainWindow::getWindowIcon(HWND hwnd) const
 				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM) &&
 				hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0) &&
 				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICON) &&
-				hIcon != LoadIcon(NULL, IDI_APPLICATION))
-			{
+				hIcon != LoadIcon(NULL, IDI_APPLICATION)) {
 				DestroyIcon(hIcon);
 			}
 		}
@@ -2309,19 +2158,15 @@ QIcon MainWindow::getWindowIcon(HWND hwnd) const
 void MainWindow::updateTrayMenuIcons()
 {
 	// 更新所有托盘菜单项的图标
-	for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it)
-	{
+	for (auto it = m_appTrayWindows.begin(); it != m_appTrayWindows.end(); ++it) {
 		HWND hwnd = it.key();
 		QAction* action = it.value();
 
-		if (hwnd && IsWindow(hwnd) && action)
-		{
+		if (hwnd && IsWindow(hwnd) && action) {
 			// 检查当前图标是否有效
-			if (action->icon().isNull())
-			{
+			if (action->icon().isNull()) {
 				QIcon newIcon = getWindowIcon(hwnd);
-				if (!newIcon.isNull())
-				{
+				if (!newIcon.isNull()) {
 					action->setIcon(newIcon);
 
 					// 更新存储的数据
@@ -2334,32 +2179,24 @@ void MainWindow::updateTrayMenuIcons()
 	}
 }
 
-void MainWindow::setupHotkeys()
-{
-	// 连接热键信号
-	connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyTriggered,
-			this, &MainWindow::onHotkeyTriggered);
-
-	// 加载保存的热键设置
-	loadHotkeySettings();
-}
-
 void MainWindow::loadHotkeySettings()
 {
 	QSettings settings(getConfigPath(), QSettings::IniFormat);
+
 	settings.beginGroup("Hotkeys");
 
-	QString minimizeKey = settings.value("minimize_active", "Win+Shift+Z").toString();
-	QKeySequence minimizeSequence = QKeySequence::fromString(minimizeKey);
-
-	if (!minimizeSequence.isEmpty())
-	{
-		HotkeyManager::instance().registerHotkey("minimize_active", minimizeSequence);
+	QStringList keys = settings.childKeys();
+	for (const QString& key : keys) {
+		QString hotkeyStr = settings.value(key).toString();
+		if (!hotkeyStr.isEmpty()) {
+			QKeySequence keySequence(hotkeyStr);
+			if (!HotkeyManager::instance().registerHotkey(key, keySequence)) {
+				qWarning() << "Failed to register hotkey:" << key << "->" << hotkeyStr;
+			}
+		}
 	}
 
 	settings.endGroup();
-
-	updateMinimizeHotkeyDisplay();
 }
 
 void MainWindow::saveHotkeySettings()
@@ -2368,118 +2205,92 @@ void MainWindow::saveHotkeySettings()
 
 	settings.beginGroup("Hotkeys");
 
-	// 保存所有热键
-	auto hotkeys = HotkeyManager::instance().getAllHotkeys();
-	for (auto it = hotkeys.begin(); it != hotkeys.end(); ++it)
-	{
-		settings.setValue(it.key(), it.value().toString());
+	// 保存所有预定义热键动作的键绑定
+	QVector<QPair<QString, QString>> hotkeyActions = {
+		{"minimize_active", ""},
+		{"show_window", ""},
+		{"restore_last", ""},
+		{"restore_all", ""}
+	};
+
+	auto currentHotkeys = HotkeyManager::instance().getAllHotkeys();
+
+	for (const auto& action : hotkeyActions) {
+		if (currentHotkeys.contains(action.first)) {
+			settings.setValue(action.first, currentHotkeys[action.first].toString());
+		}
+		else {
+			settings.setValue(action.first, "");  // 清空未注册的热键
+		}
 	}
 
 	settings.endGroup();
+	settings.sync();
+
+	qDebug() << "Hotkey settings saved";
 }
 
 void MainWindow::onHotkeyTriggered(const QString& id)
 {
-	if (id == "minimize_active")
-	{
+	if (id == "minimize_active") {
 		minimizeActiveToTray();
 	}
-	// 可以添加更多热键处理
-	else if (id == "show_window")
-	{
+	else if (id == "show_window") {
 		showWindow();
 	}
-}
-
-void MainWindow::startSetMinimizeHotkey()
-{
-	if (m_settingHotkey)
-	{
-		return; // 已经在设置中
+	else if (id == "restore_last") {
+		restoreLastWindow();
 	}
-
-	m_settingHotkey = true;
-	m_currentHotkeyId = "minimize_active";
-
-	// 改变UI状态提示用户
-	minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Press key combination..."));
-	minimizeHotkeyEdit->setText("");
-	setMinimizeHotkeyButton->setText(trc("MainWindow", "Press Keys Now"));
-	setMinimizeHotkeyButton->setEnabled(false);
-
-	// 安装事件过滤器来捕获按键
-	qApp->installEventFilter(this);
-
-	// 设置超时取消
-	QTimer::singleShot(10000, this, [this]() {
-		if (m_settingHotkey)
-		{
-			cancelHotkeySetting();
-		}
-					   });
-}
-
-void MainWindow::clearMinimizeHotkey()
-{
-	// 注销热键
-	HotkeyManager::instance().unregisterHotkey("minimize_active");
-
-	// 更新显示
-	minimizeHotkeyEdit->setText("");
-	minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "No hotkey set"));
-
-	// 保存设置
-	saveHotkeySettings();
-}
-
-void MainWindow::updateMinimizeHotkeyDisplay()
-{
-	auto hotkeys = HotkeyManager::instance().getAllHotkeys();
-	if (hotkeys.contains("minimize_active"))
-	{
-		minimizeHotkeyEdit->setText(hotkeys["minimize_active"].toString());
+	else if (id == "restore_all") {
+		restoreAllWindows();
 	}
-	else
-	{
-		minimizeHotkeyEdit->setText("");
-		minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "No hotkey set"));
+	else {
+		qDebug() << "Unknown hotkey triggered:" << id;
 	}
 }
 
 // 事件过滤器来捕获按键
 bool MainWindow::eventFilter(QObject* obj, QEvent* event)
 {
-	if (m_settingHotkey && event->type() == QEvent::KeyPress)
-	{
+	if (m_settingHotkey && event->type() == QEvent::KeyPress) {
 		QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
 
-		// 忽略单个修饰键的按下
+		// 忽略单个修饰键
 		if (keyEvent->key() == Qt::Key_Control ||
 			keyEvent->key() == Qt::Key_Shift ||
 			keyEvent->key() == Qt::Key_Alt ||
-			keyEvent->key() == Qt::Key_Meta)
-		{
+			keyEvent->key() == Qt::Key_Meta) {
 			return QMainWindow::eventFilter(obj, event);
+		}
+
+		// 检查是否按下了 Escape 取消
+		if (keyEvent->key() == Qt::Key_Escape) {
+			cancelHotkeySetting();
+			return true;
 		}
 
 		// 创建键序列
 		QKeySequence keySequence(keyEvent->key() | keyEvent->modifiers());
 
+		// 检查热键是否已被占用
+		if (!isHotkeyAvailable(keySequence)) {
+			QMessageBox::warning(this, trc("MainWindow", "Error"),
+								 trc("MainWindow", "This hotkey is already in use!"));
+			cancelHotkeySetting();
+			return true;
+		}
+
 		// 尝试注册热键
-		if (HotkeyManager::instance().registerHotkey(m_currentHotkeyId, keySequence))
-		{
-			// 成功
+		if (HotkeyManager::instance().registerHotkey(m_currentHotkeyId, keySequence)) {
 			finishHotkeySetting(keySequence.toString());
 		}
-		else
-		{
-			// 失败
+		else {
 			QMessageBox::warning(this, trc("MainWindow", "Error"),
-								 trc("MainWindow", "Failed to register hotkey. It may be already in use."));
+								 trc("MainWindow", "Failed to register hotkey"));
 			cancelHotkeySetting();
 		}
 
-		return true; // 事件已处理
+		return true;
 	}
 
 	return QMainWindow::eventFilter(obj, event);
@@ -2488,27 +2299,42 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event)
 void MainWindow::finishHotkeySetting(const QString& keySequence)
 {
 	m_settingHotkey = false;
-	m_currentHotkeyId.clear();
 
 	// 移除事件过滤器
 	qApp->removeEventFilter(this);
 
 	// 恢复UI状态
-	setMinimizeHotkeyButton->setText(trc("MainWindow", "Set Hotkey"));
-	setMinimizeHotkeyButton->setEnabled(true);
+	hotkeyTable->setEnabled(true);
+	bindHotkeyButton->setEnabled(true);
+	clearHotkeyButton->setEnabled(true);
 
-	// 更新显示
-	updateMinimizeHotkeyDisplay();
+	// 更新表格显示
+	int row = hotkeyTable->currentRow();
+	if (row >= 0) {
+		QTableWidgetItem* hotkeyItem = hotkeyTable->item(row, 2);
+		if (hotkeyItem) {
+			hotkeyItem->setText(keySequence);
+			hotkeyItem->setForeground(Qt::black);
+		}
+	}
 
 	// 保存设置
 	saveHotkeySettings();
 
 	QMessageBox::information(this, trc("MainWindow", "Success"),
-							 trc("MainWindow", "Hotkey set successfully: %1").arg(keySequence));
+							 trc("MainWindow", "Hotkey set successfully"));
+
+	// 清理临时对象
+	if (currentHotkeyAction) {
+		currentHotkeyAction->deleteLater();
+		currentHotkeyAction = nullptr;
+	}
 }
 
 void MainWindow::cancelHotkeySetting()
 {
+	if (!m_settingHotkey) return;
+
 	m_settingHotkey = false;
 	m_currentHotkeyId.clear();
 
@@ -2516,13 +2342,36 @@ void MainWindow::cancelHotkeySetting()
 	qApp->removeEventFilter(this);
 
 	// 恢复UI状态
-	setMinimizeHotkeyButton->setText(trc("MainWindow", "Set Hotkey"));
-	setMinimizeHotkeyButton->setEnabled(true);
+	hotkeyTable->setEnabled(true);
+	bindHotkeyButton->setEnabled(true);
+	clearHotkeyButton->setEnabled(true);
 
-	// 恢复显示
-	updateMinimizeHotkeyDisplay();
+	// 恢复表格显示
+	int row = hotkeyTable->currentRow();
+	if (row >= 0) {
+		// 获取原来的热键
+		QString originalHotkey = "";
+		QTableWidgetItem* idItem = hotkeyTable->item(row, 0);
+		if (idItem) {
+			QString hotkeyId = idItem->data(Qt::UserRole).toString();
+			auto hotkeys = HotkeyManager::instance().getAllHotkeys();
+			if (hotkeys.contains(hotkeyId)) {
+				originalHotkey = hotkeys[hotkeyId].toString();
+			}
+		}
 
-	minimizeHotkeyEdit->setPlaceholderText(trc("MainWindow", "Hotkey setting cancelled"));
+		QTableWidgetItem* hotkeyItem = hotkeyTable->item(row, 2);
+		if (hotkeyItem) {
+			hotkeyItem->setText(originalHotkey);
+			hotkeyItem->setForeground(Qt::black);
+		}
+	}
+
+	// 清理临时对象
+	if (currentHotkeyAction) {
+		currentHotkeyAction->deleteLater();
+		currentHotkeyAction = nullptr;
+	}
 }
 
 void MainWindow::onOpacitySliderChanged(int val)
@@ -2546,8 +2395,7 @@ void MainWindow::onOpacitySliderChanged(int val)
 void MainWindow::toggleMuteWindow()
 {
 	HWND hwnd = getSelectedWindow();
-	if (!hwnd)
-	{
+	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
 								 trc("MainWindow", "Please select a window to mute/unmute"));
 		return;
@@ -2559,14 +2407,12 @@ void MainWindow::toggleMuteWindow()
 	bool current = muteStates.value(processId, false);
 	bool success = VolumeControl::SetProcessMuteWithTimeout(processId, !current, 1000);
 
-	if (success)
-	{
+	if (success) {
 		muteStates[processId] = !current;
 		QMessageBox::information(this, trc("MainWindow", "Success"),
 								 trc("MainWindow", "Window %1.").arg(current ? "unmuted" : "muted"));
 	}
-	else
-	{
+	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
 							 trc("MainWindow", "Failed to mute/unmute process."));
 	}
@@ -2641,7 +2487,14 @@ void MainWindow::createDefaultConfig()
 
 	// 热键
 	settings.setValue("hotkey/enabled", true);
-	settings.setValue("Hotkeys/minimize_active", "Win+Shift+Z");
+
+	// 设置默认热键
+	settings.beginGroup("Hotkeys");
+	settings.setValue("minimize_active", "Win+Shift+Z");
+	settings.setValue("show_window", "Win+Shift+X");
+	settings.setValue("restore_last", "Win+Shift+R");
+	settings.setValue("restore_all", "Win+Shift+A");
+	settings.endGroup();
 
 	// 窗口
 	settings.setValue("window/always_on_top", false);
@@ -2664,10 +2517,157 @@ void MainWindow::onResetDefaults()
 
 	createDefaultConfig();      // 写入默认配置
 	loadSettings();             // 重新加载界面设置
-	loadHotkeySettings();       // 重新加载热键
 	retranslateUI();            // 刷新语言
 
 	QMessageBox::information(this,
 							 trc("MainWindow", "Reset Complete"),
 							 trc("MainWindow", "All settings have been restored to default."));
+}
+
+void MainWindow::initializeHotkeyTable()
+{
+	// 清空表格
+	hotkeyTable->setRowCount(0);
+
+	// 定义可用的热键动作
+	QVector<QPair<QString, QString>> hotkeyActions = {
+		{"minimize_active", trc("MainWindow", "Minimize Active Window to Tray")},
+		{"show_window", trc("MainWindow", "Show Main Window")},
+		{"restore_last", trc("MainWindow", "Restore Last Hidden Window")},
+		{"restore_all", trc("MainWindow", "Restore All Hidden Windows")}
+	};
+
+	// 获取当前已注册的热键
+	auto currentHotkeys = HotkeyManager::instance().getAllHotkeys();
+
+	// 填充表格
+	for (int i = 0; i < hotkeyActions.size(); ++i) {
+		const auto& action = hotkeyActions[i];
+
+		int row = hotkeyTable->rowCount();
+		hotkeyTable->insertRow(row);
+
+		// 动作ID
+		QTableWidgetItem* idItem = new QTableWidgetItem(action.first);
+		idItem->setData(Qt::UserRole, action.first);  // 保存ID
+
+		// 描述
+		QTableWidgetItem* descItem = new QTableWidgetItem(action.second);
+
+		// 热键
+		QString hotkeyText = "";
+		if (currentHotkeys.contains(action.first)) {
+			hotkeyText = currentHotkeys[action.first].toString();
+		}
+		QTableWidgetItem* hotkeyItem = new QTableWidgetItem(hotkeyText);
+
+		hotkeyTable->setItem(row, 0, idItem);
+		hotkeyTable->setItem(row, 1, descItem);
+		hotkeyTable->setItem(row, 2, hotkeyItem);
+
+		// 隐藏ID列
+		hotkeyTable->setColumnHidden(0, true);
+	}
+
+	// 连接表格选择变化信号
+	connect(hotkeyTable, &QTableWidget::itemSelectionChanged,
+			this, &MainWindow::onHotkeySelectionChanged);
+}
+
+void MainWindow::onHotkeySelectionChanged()
+{
+	int row = hotkeyTable->currentRow();
+	bool hasSelection = (row >= 0);
+
+	bindHotkeyButton->setEnabled(hasSelection);
+	clearHotkeyButton->setEnabled(hasSelection);
+}
+
+void MainWindow::startBindHotkey()
+{
+	int row = hotkeyTable->currentRow();
+	if (row < 0) return;
+
+	QTableWidgetItem* idItem = hotkeyTable->item(row, 0);
+	if (!idItem) return;
+
+	QString hotkeyId = idItem->data(Qt::UserRole).toString();
+	currentHotkeyAction = new QAction(this);  // 临时存储当前设置的热键
+
+	m_settingHotkey = true;
+	m_currentHotkeyId = hotkeyId;
+
+	// 改变UI状态提示用户
+	QTableWidgetItem* hotkeyItem = hotkeyTable->item(row, 2);
+	if (hotkeyItem) {
+		hotkeyItem->setText(trc("MainWindow", "Press key combination..."));
+		hotkeyItem->setForeground(Qt::blue);
+	}
+
+	bindHotkeyButton->setEnabled(false);
+	clearHotkeyButton->setEnabled(false);
+	hotkeyTable->setEnabled(false);
+
+	// 安装事件过滤器
+	qApp->installEventFilter(this);
+
+	// 设置超时取消
+	QTimer::singleShot(10000, this, [this]() {
+		if (m_settingHotkey) {
+			cancelHotkeySetting();
+		}
+					   });
+}
+
+bool MainWindow::isHotkeyAvailable(const QKeySequence& keySequence)
+{
+	auto currentHotkeys = HotkeyManager::instance().getAllHotkeys();
+
+	// 检查新热键是否与已有的冲突
+	for (auto it = currentHotkeys.begin(); it != currentHotkeys.end(); ++it) {
+		if (it.key() != m_currentHotkeyId && it.value() == keySequence) {
+			return false;
+		}
+	}
+
+	// 这里可以添加检查系统保留热键的逻辑
+	return true;
+}
+
+void MainWindow::clearSelectedHotkey()
+{
+	int row = hotkeyTable->currentRow();
+	if (row < 0) return;
+
+	QTableWidgetItem* idItem = hotkeyTable->item(row, 0);
+	if (!idItem) return;
+
+	QString hotkeyId = idItem->data(Qt::UserRole).toString();
+
+	// 询问确认
+	QMessageBox::StandardButton reply;
+	reply = QMessageBox::question(this, trc("MainWindow", "Confirm"),
+								  trc("MainWindow", "Clear this hotkey?"),
+								  QMessageBox::Yes | QMessageBox::No);
+
+	if (reply != QMessageBox::Yes) return;
+
+	// 注销热键
+	HotkeyManager::instance().unregisterHotkey(hotkeyId);
+
+	// 更新表格
+	QTableWidgetItem* hotkeyItem = hotkeyTable->item(row, 2);
+	if (hotkeyItem) {
+		hotkeyItem->setText("");
+	}
+
+	// 保存设置
+	saveHotkeySettings();
+}
+
+void MainWindow::onHotkeyItemDoubleClicked(QTableWidgetItem* item)
+{
+	if (item && item->column() == 2) {  // 双击热键列
+		startBindHotkey();
+	}
 }
