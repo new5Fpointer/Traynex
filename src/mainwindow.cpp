@@ -11,16 +11,6 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QHeaderView>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QListWidget>
-#include <QPushButton>
-#include <QLabel>
-#include <QTabWidget>
-#include <QGroupBox>
-#include <QCheckBox>
-#include <QSpinBox>
-#include <QComboBox>
 #include <QFormLayout>
 #include <QSettings>
 #include <QStandardPaths>
@@ -29,7 +19,6 @@
 #include <QWidgetAction>
 #include <QProcess>
 #include <QFileInfo>
-#include <iostream>
 
 #include <psapi.h>
 #include <shellapi.h>
@@ -54,11 +43,11 @@ MainWindow::MainWindow(QWidget* parent)
 	setupConnections();
 
 	connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyTriggered,
-			this, &MainWindow::onHotkeyTriggered);
+		this, &MainWindow::onHotkeyTriggered);
 	connect(&WindowsTrayManager::instance(), &WindowsTrayManager::trayWindowsChanged,
-			this, &MainWindow::updateTrayMenu);
+		this, &MainWindow::updateTrayMenu);
 	connect(&WindowsTrayManager::instance(), &WindowsTrayManager::trayWindowsChanged,
-			this, &MainWindow::refreshAllLists);
+		this, &MainWindow::refreshAllLists);
 
 	// 创建定时器
 	refreshTimer = new QTimer(this);
@@ -79,7 +68,7 @@ MainWindow::MainWindow(QWidget* parent)
 	// 初始化 Windows 原生托盘管理器
 	if (!WindowsTrayManager::instance().initialize()) {
 		QMessageBox::critical(this, trc("MainWindow", "Error"),
-							  trc("MainWindow", "Failed to initialize Windows tray manager"));
+			trc("MainWindow", "Failed to initialize Windows tray manager"));
 	}
 
 	// 创建 Qt 托盘
@@ -95,7 +84,7 @@ MainWindow::~MainWindow()
 {
 	WindowsTrayManager::instance().shutdown();
 	connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyTriggered,
-			this, &MainWindow::onHotkeyTriggered);
+		this, &MainWindow::onHotkeyTriggered);
 }
 
 void MainWindow::setupUI()
@@ -134,7 +123,7 @@ void MainWindow::setupUI()
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
 		trc("MainWindow", "Process")
-											});
+		});
 	windowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
 
 	// 表格属性
@@ -177,7 +166,7 @@ void MainWindow::setupUI()
 
 	// 连接信号
 	connect(windowsTable, &QTableWidget::customContextMenuRequested,
-			this, &MainWindow::onTableContextMenu);
+		this, &MainWindow::onTableContextMenu);
 
 	// === 隐藏窗口页面 ===
 	QWidget* hiddenTab = new QWidget();
@@ -203,7 +192,7 @@ void MainWindow::setupUI()
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
 		trc("MainWindow", "Process")
-												  });
+		});
 	hiddenWindowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
 
 	// 表格属性
@@ -241,7 +230,7 @@ void MainWindow::setupUI()
 
 	// 连接信号
 	connect(hiddenWindowsTable, &QTableWidget::customContextMenuRequested,
-			this, &MainWindow::onHiddenTableContextMenu);
+		this, &MainWindow::onHiddenTableContextMenu);
 
 	// === 设置页面 ===
 	QWidget* settingsTab = new QWidget();
@@ -304,7 +293,7 @@ void MainWindow::setupUI()
 		trc("MainWindow", "Action"),
 		trc("MainWindow", "Description"),
 		trc("MainWindow", "Hotkey")
-										   });
+		});
 
 	// 表格属性
 	hotkeyTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -405,7 +394,7 @@ void MainWindow::setupUI()
 	// 连接快速操作按钮
 	connect(githubButton, &QPushButton::clicked, []() {
 		QDesktopServices::openUrl(QUrl("https://github.com/new5Fpointer/Traynex"));
-			});
+		});
 	connect(checkUpdateButton, &QPushButton::clicked, this, &MainWindow::showAbout);
 }
 
@@ -426,13 +415,13 @@ void MainWindow::restoreSelectedWindow()
 	HWND hwnd = getSelectedWindow();
 	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
-								 trc("MainWindow", "Please select a window to restore"));
+			trc("MainWindow", "Please select a window to restore"));
 		return;
 	}
 
 	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
-							 trc("MainWindow", "The selected window is no longer available"));
+			trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
 		return;
 	}
@@ -443,7 +432,7 @@ void MainWindow::restoreSelectedWindow()
 	}
 	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
-							 trc("MainWindow", "Failed to restore the window"));
+			trc("MainWindow", "Failed to restore the window"));
 	}
 }
 
@@ -533,14 +522,14 @@ void MainWindow::closeApp()
 void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
 {
 	switch (reason) {
-		case QSystemTrayIcon::Trigger:
-		case QSystemTrayIcon::DoubleClick:
-			showWindow();
-			break;
-		case QSystemTrayIcon::Context:
-			break;
-		default:
-			break;
+	case QSystemTrayIcon::Trigger:
+	case QSystemTrayIcon::DoubleClick:
+		showWindow();
+		break;
+	case QSystemTrayIcon::Context:
+		break;
+	default:
+		break;
 	}
 }
 
@@ -682,7 +671,7 @@ void MainWindow::hideSelectedToTray()
 	HWND hwnd = getSelectedWindow();
 	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
-								 trc("MainWindow", "Please select a window to hide"));
+			trc("MainWindow", "Please select a window to hide"));
 		return;
 	}
 
@@ -695,11 +684,11 @@ void MainWindow::hideSelectedToTray()
 		refreshAllLists();
 		updateTrayMenu();
 		QMessageBox::information(this, trc("MainWindow", "Success"),
-								 trc("MainWindow", "Window hidden to tray successfully"));
+			trc("MainWindow", "Window hidden to tray successfully"));
 	}
 	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
-							 trc("MainWindow", "Failed to hide window to tray"));
+			trc("MainWindow", "Failed to hide window to tray"));
 	}
 }
 
@@ -886,7 +875,7 @@ void MainWindow::refreshWindowsTable()
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
 		trc("MainWindow", "Process")
-											});
+		});
 
 	for (const auto& window : currentWindowsInfo) {
 		int row = windowsTable->rowCount();
@@ -1088,7 +1077,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 
 		windowsList->append(qMakePair(hwnd, info));
 		return TRUE;
-				}, reinterpret_cast<LPARAM>(&windows));
+		}, reinterpret_cast<LPARAM>(&windows));
 
 	// 标记隐藏窗口
 	for (auto& window : windows) {
@@ -1169,7 +1158,7 @@ void MainWindow::retranslateUI()
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
 		trc("MainWindow", "Process")
-											});
+		});
 
 	hiddenWindowsTable->setHorizontalHeaderLabels({
 		"", // 图标列
@@ -1178,7 +1167,7 @@ void MainWindow::retranslateUI()
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
 		trc("MainWindow", "Process")
-												  });
+		});
 
 
 	// 标签页标题
@@ -1269,7 +1258,7 @@ void MainWindow::retranslateUI()
 			trc("MainWindow", "Action"),
 			trc("MainWindow", "Description"),
 			trc("MainWindow", "Hotkey")
-											   });
+			});
 	}
 
 	// 热键组标题
@@ -1413,7 +1402,7 @@ void MainWindow::updateWindowFlags()
 		QTimer::singleShot(10, this, [this]() {
 			raise();
 			activateWindow();
-						   });
+			});
 	}
 
 	qDebug() << "Window always on top:" << alwaysOnTop;
@@ -1424,13 +1413,13 @@ void MainWindow::highlightWindow()
 	HWND hwnd = getSelectedWindow();
 	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
-								 trc("MainWindow", "Please select a window to highlight"));
+			trc("MainWindow", "Please select a window to highlight"));
 		return;
 	}
 
 	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
-							 trc("MainWindow", "The selected window is no longer available"));
+			trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
 		return;
 	}
@@ -1469,9 +1458,9 @@ void MainWindow::setWindowOnTop(HWND hwnd, bool onTop)
 
 	// 设置窗口置顶状态
 	SetWindowPos(hwnd,
-				 onTop ? HWND_TOPMOST : HWND_NOTOPMOST,
-				 0, 0, 0, 0,
-				 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+		onTop ? HWND_TOPMOST : HWND_NOTOPMOST,
+		0, 0, 0, 0,
+		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
 	qDebug() << "Window" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16)
 		<< "set to" << (onTop ? "always on top" : "normal");
@@ -1482,13 +1471,13 @@ void MainWindow::toggleWindowOnTop()
 	HWND hwnd = getSelectedWindow();
 	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
-								 trc("MainWindow", "Please select a window to toggle always on top"));
+			trc("MainWindow", "Please select a window to toggle always on top"));
 		return;
 	}
 
 	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
-							 trc("MainWindow", "The selected window is no longer available"));
+			trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
 		return;
 	}
@@ -1650,14 +1639,14 @@ void MainWindow::restoreSelectedHiddenWindow()
 	int row = hiddenWindowsTable->currentRow();
 	if (row < 0) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
-								 trc("MainWindow", "Please select a window to restore"));
+			trc("MainWindow", "Please select a window to restore"));
 		return;
 	}
 
 	HWND hwnd = reinterpret_cast<HWND>(hiddenWindowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
 	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
-							 trc("MainWindow", "The selected window is no longer available"));
+			trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
 		return;
 	}
@@ -1682,7 +1671,7 @@ void MainWindow::restoreSelectedHiddenWindow()
 	}
 	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
-							 trc("MainWindow", "Failed to restore the window"));
+			trc("MainWindow", "Failed to restore the window"));
 	}
 }
 
@@ -1746,13 +1735,13 @@ void MainWindow::hideToAppTray()
 	HWND hwnd = getSelectedWindow();
 	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
-								 trc("MainWindow", "Please select a window to hide"));
+			trc("MainWindow", "Please select a window to hide"));
 		return;
 	}
 
 	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
-							 trc("MainWindow", "The selected window is no longer available"));
+			trc("MainWindow", "The selected window is no longer available"));
 		refreshAllLists();
 		return;
 	}
@@ -1761,7 +1750,7 @@ void MainWindow::hideToAppTray()
 	wchar_t className[256];
 	if (!GetClassName(hwnd, className, 256)) {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
-							 trc("MainWindow", "Cannot get window class name"));
+			trc("MainWindow", "Cannot get window class name"));
 		return;
 	}
 
@@ -1775,7 +1764,7 @@ void MainWindow::hideToAppTray()
 	for (const wchar_t* restricted : restrictedWindows) {
 		if (wcscmp(className, restricted) == 0) {
 			QMessageBox::warning(this, trc("MainWindow", "Error"),
-								 trc("MainWindow", "Cannot hide system windows"));
+				trc("MainWindow", "Cannot hide system windows"));
 			return;
 		}
 	}
@@ -1803,7 +1792,7 @@ void MainWindow::hideToAppTray()
 	updateTrayMenu();
 
 	QMessageBox::information(this, trc("MainWindow", "Success"),
-							 trc("MainWindow", "Window hidden to app tray successfully"));
+		trc("MainWindow", "Window hidden to app tray successfully"));
 }
 
 void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIcon& icon)
@@ -2013,7 +2002,7 @@ void MainWindow::restoreWindowFromAppTray()
 
 	if (!hwnd || !IsWindow(hwnd)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
-							 trc("MainWindow", "The selected window is no longer available"));
+			trc("MainWindow", "The selected window is no longer available"));
 		removeWindowFromTrayMenu(hwnd);
 		refreshAllLists();
 		return;
@@ -2040,7 +2029,7 @@ void MainWindow::restoreLastWindow()
 {
 	if (m_hiddenWindowOrder.isEmpty()) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
-								 trc("MainWindow", "No hidden windows to restore"));
+			trc("MainWindow", "No hidden windows to restore"));
 		return;
 	}
 
@@ -2075,7 +2064,7 @@ void MainWindow::restoreLastWindow()
 		// 恢复失败，将窗口重新放回列表开头
 		m_hiddenWindowOrder.prepend(lastHwnd);
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
-							 trc("MainWindow", "Failed to restore the last window"));
+			trc("MainWindow", "Failed to restore the last window"));
 	}
 }
 
@@ -2277,7 +2266,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event)
 		}
 		else {
 			QMessageBox::warning(this, trc("MainWindow", "Error"),
-								 trc("MainWindow", "Failed to register hotkey"));
+				trc("MainWindow", "Failed to register hotkey"));
 			cancelHotkeySetting();
 		}
 
@@ -2313,7 +2302,7 @@ void MainWindow::finishHotkeySetting(const QString& keySequence)
 	saveHotkeySettings();
 
 	QMessageBox::information(this, trc("MainWindow", "Success"),
-							 trc("MainWindow", "Hotkey set successfully"));
+		trc("MainWindow", "Hotkey set successfully"));
 
 	// 清理临时对象
 	if (currentHotkeyAction) {
@@ -2388,7 +2377,7 @@ void MainWindow::toggleMuteWindow()
 	HWND hwnd = getSelectedWindow();
 	if (!hwnd) {
 		QMessageBox::information(this, trc("MainWindow", "Information"),
-								 trc("MainWindow", "Please select a window to mute/unmute"));
+			trc("MainWindow", "Please select a window to mute/unmute"));
 		return;
 	}
 
@@ -2401,11 +2390,11 @@ void MainWindow::toggleMuteWindow()
 	if (success) {
 		muteStates[processId] = !current;
 		QMessageBox::information(this, trc("MainWindow", "Success"),
-								 trc("MainWindow", "Window %1.").arg(current ? "unmuted" : "muted"));
+			trc("MainWindow", "Window %1.").arg(current ? "unmuted" : "muted"));
 	}
 	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
-							 trc("MainWindow", "Failed to mute/unmute process."));
+			trc("MainWindow", "Failed to mute/unmute process."));
 	}
 }
 
@@ -2500,8 +2489,8 @@ void MainWindow::createDefaultConfig()
 void MainWindow::onResetDefaults()
 {
 	int ret = QMessageBox::question(this,
-									trc("MainWindow", "Confirm Reset"),
-									trc("MainWindow", "Are you sure you want to reset all settings to default?"));
+		trc("MainWindow", "Confirm Reset"),
+		trc("MainWindow", "Are you sure you want to reset all settings to default?"));
 
 	if (ret != QMessageBox::Yes)
 		return;
@@ -2511,8 +2500,8 @@ void MainWindow::onResetDefaults()
 	retranslateUI();            // 刷新语言
 
 	QMessageBox::information(this,
-							 trc("MainWindow", "Reset Complete"),
-							 trc("MainWindow", "All settings have been restored to default."));
+		trc("MainWindow", "Reset Complete"),
+		trc("MainWindow", "All settings have been restored to default."));
 }
 
 void MainWindow::initializeHotkeyTable()
@@ -2562,7 +2551,7 @@ void MainWindow::initializeHotkeyTable()
 
 	// 连接表格选择变化信号
 	connect(hotkeyTable, &QTableWidget::itemSelectionChanged,
-			this, &MainWindow::onHotkeySelectionChanged);
+		this, &MainWindow::onHotkeySelectionChanged);
 }
 
 void MainWindow::onHotkeySelectionChanged()
@@ -2607,7 +2596,7 @@ void MainWindow::startBindHotkey()
 		if (m_settingHotkey) {
 			cancelHotkeySetting();
 		}
-	});
+		});
 }
 
 bool MainWindow::isHotkeyAvailable(const QKeySequence& keySequence)
@@ -2642,8 +2631,8 @@ void MainWindow::clearSelectedHotkey()
 	// 询问确认
 	QMessageBox::StandardButton reply;
 	reply = QMessageBox::question(this, trc("MainWindow", "Confirm"),
-								  trc("MainWindow", "Clear this hotkey?"),
-								  QMessageBox::Yes | QMessageBox::No);
+		trc("MainWindow", "Clear this hotkey?"),
+		QMessageBox::Yes | QMessageBox::No);
 
 	if (reply != QMessageBox::Yes) return;
 
