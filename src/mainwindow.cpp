@@ -22,6 +22,7 @@
 
 #include <psapi.h>
 #include <shellapi.h>
+#include <QScrollArea>
 
 MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
@@ -235,6 +236,19 @@ void MainWindow::setupUI()
 	// === 设置页面 ===
 	QWidget* settingsTab = new QWidget();
 	QVBoxLayout* settingsLayout = new QVBoxLayout(settingsTab);
+	settingsLayout->setContentsMargins(0, 0, 0, 0); // 移除边距
+
+	// 创建一个滚动区域
+	QScrollArea* scrollArea = new QScrollArea();
+	scrollArea->setWidgetResizable(true); // 允许内部widget调整大小
+	scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); // 禁用水平滚动条
+	scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded); // 根据需要显示垂直滚动条
+	scrollArea->setFrameShape(QFrame::NoFrame); // 移除边框
+
+	// 创建滚动区域的内容widget
+	QWidget* scrollContent = new QWidget();
+	QVBoxLayout* scrollLayout = new QVBoxLayout(scrollContent);
+	scrollLayout->setAlignment(Qt::AlignTop); // 顶部对齐
 
 	// 常规设置
 	QGroupBox* generalGroup = new QGroupBox(trc("MainWindow", "General Settings"));
@@ -281,9 +295,15 @@ void MainWindow::setupUI()
 	languageCombo->addItem("English", "en");
 	languageCombo->addItem("中文", "zh");
 
+	QLabel* languageLabel = new QLabel(trc("MainWindow", "Language:"));
+	languageLabel->setObjectName("languageLabel");
+
+	windowLayout->addRow(languageLabel, languageCombo);
+
 	// 热键设置
 	QGroupBox* hotkeyGroup = new QGroupBox(trc("MainWindow", "Hotkey Settings"));
 	hotkeyGroup->setObjectName("hotkeyGroup");
+	hotkeyGroup->setFixedHeight(300);
 	QVBoxLayout* hotkeyLayout = new QVBoxLayout(hotkeyGroup);
 
 	// 创建热键表格
@@ -321,28 +341,73 @@ void MainWindow::setupUI()
 	buttonLayout->addWidget(clearHotkeyButton);
 	buttonLayout->addStretch();
 
-	// 组装布局
+	// 组装热键布局
 	hotkeyLayout->addWidget(hotkeyTable);
 	hotkeyLayout->addLayout(buttonLayout);
 
-	QLabel* languageLabel = new QLabel(trc("MainWindow", "Language:"));
-	languageLabel->setObjectName("languageLabel");
+	// 组装滚动区域的内容布局
+	scrollLayout->addWidget(generalGroup);
+	scrollLayout->addWidget(refreshGroup);
+	scrollLayout->addWidget(windowGroup);
+	scrollLayout->addWidget(hotkeyGroup);
+
+	// 添加重置按钮
+	QHBoxLayout* resetLayout = new QHBoxLayout();
 
 	QPushButton* resetDefaultsButton = new QPushButton(trc("MainWindow", "Reset to Defaults"));
 	resetDefaultsButton->setObjectName("resetDefaultsButton");
-	resetDefaultsButton->setMaximumWidth(120);
+	resetDefaultsButton->setMaximumWidth(150);
 
 	connect(resetDefaultsButton, &QPushButton::clicked, this, &MainWindow::onResetDefaults);
 
-	windowLayout->addRow(languageLabel, languageCombo);
+	resetLayout->addStretch();
+	resetLayout->addWidget(resetDefaultsButton);
+	resetLayout->addStretch();
 
-	settingsLayout->addWidget(generalGroup);
-	settingsLayout->addWidget(refreshGroup);
-	settingsLayout->addWidget(windowGroup);
-	settingsLayout->addWidget(hotkeyGroup);
-	settingsLayout->addStretch();
-	settingsLayout->addWidget(resetDefaultsButton, 0, Qt::AlignLeft);
+	scrollLayout->addLayout(resetLayout);
 
+	// 设置滚动区域的内容widget
+	scrollArea->setWidget(scrollContent);
+
+	// 确保滚动区域背景透明，与主窗口一致
+	scrollArea->setStyleSheet(R"(
+    QScrollArea {
+        border: none;
+        background: transparent;
+    }
+    QScrollArea > QWidget > QWidget {
+        background: transparent;
+    }
+    QScrollBar:vertical {
+        border: none;
+        background: #f0f0f0;
+        width: 8px;
+        margin: 0px 0px 0px 0px;
+    }
+    QScrollBar::handle:vertical {
+        background: #c0c0c0;
+        border-radius: 4px;
+        min-height: 20px;
+    }
+    QScrollBar::handle:vertical:hover {
+        background: #a0a0a0;
+    }
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        height: 0px;
+    }
+)");
+
+	// 设置滚动区域背景与主窗口一致
+	QPalette palette = scrollArea->palette();
+	palette.setColor(QPalette::Window, QApplication::palette().color(QPalette::Window));
+	scrollArea->setPalette(palette);
+	scrollContent->setPalette(palette);
+
+	// 组装主布局
+	settingsLayout->addWidget(scrollArea);
+
+	// 添加标签页
+	tabWidget->addTab(settingsTab, trc("MainWindow", "Settings"));
 	// === 关于页面 ===
 	QWidget* aboutTab = new QWidget();
 	QVBoxLayout* aboutLayout = new QVBoxLayout(aboutTab);
@@ -1272,6 +1337,11 @@ void MainWindow::retranslateUI()
 	}
 	if (clearHotkeyButton) {
 		clearHotkeyButton->setText(trc("MainWindow", "Clear Hotkey"));
+	}
+
+	// 重置按钮文本
+	if (auto resetDefaultsButton = findChild<QPushButton*>("resetDefaultsButton")) {
+		resetDefaultsButton->setText(trc("MainWindow", "Reset to Defaults"));
 	}
 
 	// 刷新热键列表的描述
