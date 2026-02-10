@@ -170,6 +170,9 @@ private:
 	QComboBox* languageCombo;
 	QPushButton* saveSettingsButton;
 	QCheckBox* alwaysOnTopCheck;
+	QCheckBox* autoRefreshCheck;
+	QSpinBox* refreshIntervalSpin;
+	QPushButton* resetDefaultsButton;
 
 	// 热键设置相关
 	QTableWidget* hotkeyTable;
@@ -191,9 +194,6 @@ private:
 
 	// 定时刷新计时器
 	QTimer* refreshTimer;
-
-	QCheckBox* autoRefreshCheck;
-	QSpinBox* refreshIntervalSpin;
 
 	// 热键设置状态
 	bool m_settingHotkey = false;

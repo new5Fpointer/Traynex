@@ -354,7 +354,7 @@ void MainWindow::setupUI()
 	// 添加重置按钮
 	QHBoxLayout* resetLayout = new QHBoxLayout();
 
-	QPushButton* resetDefaultsButton = new QPushButton(trc("MainWindow", "Reset to Defaults"));
+	resetDefaultsButton = new QPushButton(trc("MainWindow", "Reset to Defaults"));
 	resetDefaultsButton->setObjectName("resetDefaultsButton");
 	resetDefaultsButton->setMaximumWidth(150);
 
@@ -1234,7 +1234,6 @@ void MainWindow::retranslateUI()
 		trc("MainWindow", "Process")
 		});
 
-
 	// 标签页标题
 	tabWidget->setTabText(0, trc("MainWindow", "Main"));
 	tabWidget->setTabText(1, trc("MainWindow", "Hidden Windows"));
@@ -1249,52 +1248,59 @@ void MainWindow::retranslateUI()
 		quitAction->setText(trc("MainWindow", "Exit"));
 		trayIcon->setToolTip(trc("MainWindow", "Traynex - Right click for menu"));
 	}
-	// 更动态菜单布局
+
+	// 更新托盘菜单布局
 	updateTrayMenuLayout();
-	// 设置页面
-	// 组标题
-	if (auto generalGroup = findChild<QGroupBox*>("generalGroup")) {
-		generalGroup->setTitle(trc("MainWindow", "General Settings"));
-	}
-	if (auto refreshGroup = findChild<QGroupBox*>("refreshGroup")) {
-		refreshGroup->setTitle(trc("MainWindow", "Auto Refresh Settings"));
-	}
-	if (auto windowGroup = findChild<QGroupBox*>("windowGroup")) {
-		windowGroup->setTitle(trc("MainWindow", "Window Settings"));
+
+	// 设置页面组标题
+	QList<QGroupBox*> groups = findChildren<QGroupBox*>();
+	for (QGroupBox* group : groups) {
+		QString objectName = group->objectName();
+		if (objectName == "generalGroup") {
+			group->setTitle(trc("MainWindow", "General Settings"));
+		}
+		else if (objectName == "refreshGroup") {
+			group->setTitle(trc("MainWindow", "Auto Refresh Settings"));
+		}
+		else if (objectName == "windowGroup") {
+			group->setTitle(trc("MainWindow", "Window Settings"));
+		}
+		else if (objectName == "hotkeyGroup") {
+			group->setTitle(trc("MainWindow", "Hotkey Settings"));
+		}
 	}
 
-	// 复选框和标签
 	startWithSystemCheck->setText(trc("MainWindow", "Start with Windows"));
 	enableHotkeyCheck->setText(trc("MainWindow", "Enable Hotkey"));
 	autoRefreshCheck->setText(trc("MainWindow", "Enable auto refresh"));
 	alwaysOnTopCheck->setText(trc("MainWindow", "Always on Top"));
 
-	// 表单标签
+	// 刷新间隔标签
 	if (auto refreshLabel = findChild<QLabel*>("refreshIntervalLabel")) {
 		refreshLabel->setText(trc("MainWindow", "Refresh interval:"));
 	}
-	if (auto maxWindowsLabel = findChild<QLabel*>("maxWindowsLabel")) {
-		maxWindowsLabel->setText(trc("MainWindow", "Maximum hidden windows:"));
-	}
+
+	// 语言标签
 	if (auto languageLabel = findChild<QLabel*>("languageLabel")) {
 		languageLabel->setText(trc("MainWindow", "Language:"));
 	}
 
-	// 关于页面
-	if (auto aboutTitle = findChild<QLabel*>("aboutTitle")) {
-		aboutTitle->setText(trc("MainWindow", "About"));
-	}
+	// 热键表格标题
+	hotkeyTable->setHorizontalHeaderLabels({
+		trc("MainWindow", "Action"),
+		trc("MainWindow", "Description"),
+		trc("MainWindow", "Hotkey")
+		});
 
-	// 关于页面按钮
-	if (auto githubButton = findChild<QPushButton*>("githubButton")) {
-		githubButton->setText(trc("MainWindow", "Visit GitHub Repository"));
-	}
-	if (auto checkUpdateButton = findChild<QPushButton*>("checkUpdateButton")) {
-		checkUpdateButton->setText(trc("MainWindow", "Check for Updates"));
-	}
+	// 按钮文本
+	bindHotkeyButton->setText(trc("MainWindow", "Bind Hotkey"));
+	clearHotkeyButton->setText(trc("MainWindow", "Clear Hotkey"));
 
-	// 更新关于文本
-	showAbout();
+	// 重置按钮文本
+	resetDefaultsButton->setText(trc("MainWindow", "Reset to Defaults"));
+
+	// 刷新热键列表的描述
+	initializeHotkeyTable();
 
 	// 右键菜单
 	if (contextMenu) {
@@ -1317,35 +1323,8 @@ void MainWindow::retranslateUI()
 		restoreAllHiddenAction->setText(trc("MainWindow", "Restore All Windows"));
 	}
 
-	// 热键表格标题
-	if (hotkeyTable) {
-		hotkeyTable->setHorizontalHeaderLabels({
-			trc("MainWindow", "Action"),
-			trc("MainWindow", "Description"),
-			trc("MainWindow", "Hotkey")
-			});
-	}
-
-	// 热键组标题
-	if (auto hotkeyGroup = findChild<QGroupBox*>("hotkeyGroup")) {
-		hotkeyGroup->setTitle(trc("MainWindow", "Hotkey Settings"));
-	}
-
-	// 按钮文本
-	if (bindHotkeyButton) {
-		bindHotkeyButton->setText(trc("MainWindow", "Bind Hotkey"));
-	}
-	if (clearHotkeyButton) {
-		clearHotkeyButton->setText(trc("MainWindow", "Clear Hotkey"));
-	}
-
-	// 重置按钮文本
-	if (auto resetDefaultsButton = findChild<QPushButton*>("resetDefaultsButton")) {
-		resetDefaultsButton->setText(trc("MainWindow", "Reset to Defaults"));
-	}
-
-	// 刷新热键列表的描述
-	initializeHotkeyTable();
+	// 更新关于文本
+	showAbout();
 
 	// 刷新表格内容
 	refreshWindowsTable();
