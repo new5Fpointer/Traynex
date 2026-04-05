@@ -125,6 +125,15 @@ void MainWindow::setupUI()
 		trc("MainWindow", "Process ID"),
 		trc("MainWindow", "Process")
 		});
+	
+	// 为表头添加悬浮提示
+	for (int i = 0; i < windowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = windowsTable->horizontalHeaderItem(i);
+		if (headerItem) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
+	
 	windowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
 
 	// 表格属性
@@ -194,6 +203,15 @@ void MainWindow::setupUI()
 		trc("MainWindow", "Process ID"),
 		trc("MainWindow", "Process")
 		});
+	
+	// 为表头添加悬浮提示
+	for (int i = 0; i < hiddenWindowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = hiddenWindowsTable->horizontalHeaderItem(i);
+		if (headerItem) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
+	
 	hiddenWindowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
 
 	// 表格属性
@@ -314,6 +332,14 @@ void MainWindow::setupUI()
 		trc("MainWindow", "Description"),
 		trc("MainWindow", "Hotkey")
 		});
+	
+	// 为表头添加悬浮提示
+	for (int i = 0; i < hotkeyTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = hotkeyTable->horizontalHeaderItem(i);
+		if (headerItem) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
 
 	// 表格属性
 	hotkeyTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -956,19 +982,24 @@ void MainWindow::refreshWindowsTable()
 		// 窗口标题
 		QTableWidgetItem* titleItem = new QTableWidgetItem(window.second.title);
 		titleItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(window.second.hwnd));
+		titleItem->setToolTip(window.second.title);  // 添加悬浮提示
 
 		// 窗口句柄
 		QTableWidgetItem* handleItem = new QTableWidgetItem(
 			QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
+		handleItem->setToolTip(QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
 
 		// 窗口类名
 		QTableWidgetItem* classItem = new QTableWidgetItem(window.second.className);
+		classItem->setToolTip(window.second.className);
 
 		// 进程ID
 		QTableWidgetItem* pidItem = new QTableWidgetItem(QString::number(window.second.processId));
+		pidItem->setToolTip(QString::number(window.second.processId));
 
 		// 进程名
 		QTableWidgetItem* processItem = new QTableWidgetItem(window.second.processName);
+		processItem->setToolTip(window.second.processName);
 
 		windowsTable->setItem(row, 0, iconItem);     // 图标
 		windowsTable->setItem(row, 1, titleItem);    // 窗口标题
@@ -1658,19 +1689,24 @@ void MainWindow::refreshHiddenWindowsTable()
 		// 窗口标题
 		QTableWidgetItem* titleItem = new QTableWidgetItem(title);
 		titleItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(hwnd));
+		titleItem->setToolTip(title);  // 添加悬浮提示
 
 		// 窗口句柄
 		QTableWidgetItem* handleItem = new QTableWidgetItem(
 			QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
+		handleItem->setToolTip(QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
 
 		// 窗口类名
 		QTableWidgetItem* classItem = new QTableWidgetItem(className);
+		classItem->setToolTip(className);
 
 		// 进程ID
 		QTableWidgetItem* pidItem = new QTableWidgetItem(QString::number(processId));
+		pidItem->setToolTip(QString::number(processId));
 
 		// 进程名
 		QTableWidgetItem* processItem = new QTableWidgetItem(processName);
+		processItem->setToolTip(processName);
 
 		hiddenWindowsTable->setItem(row, 0, iconItem);     // 图标
 		hiddenWindowsTable->setItem(row, 1, titleItem);    // 窗口标题
@@ -2579,9 +2615,11 @@ void MainWindow::initializeHotkeyTable()
 		// 动作ID
 		QTableWidgetItem* idItem = new QTableWidgetItem(action.first);
 		idItem->setData(Qt::UserRole, action.first);  // 保存ID
+		idItem->setToolTip(action.first);  // 添加悬浮提示
 
 		// 描述
 		QTableWidgetItem* descItem = new QTableWidgetItem(action.second);
+		descItem->setToolTip(action.second);  // 添加悬浮提示
 
 		// 热键
 		QString hotkeyText = "";
@@ -2589,6 +2627,7 @@ void MainWindow::initializeHotkeyTable()
 			hotkeyText = currentHotkeys[action.first].toString();
 		}
 		QTableWidgetItem* hotkeyItem = new QTableWidgetItem(hotkeyText);
+		hotkeyItem->setToolTip(hotkeyText);  // 添加悬浮提示
 
 		hotkeyTable->setItem(row, 0, idItem);
 		hotkeyTable->setItem(row, 1, descItem);
