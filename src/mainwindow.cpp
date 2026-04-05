@@ -192,6 +192,7 @@ void MainWindow::setupUI()
 
 	// 设置默认的文本行为
 	hiddenWindowsTable->setTextElideMode(Qt::ElideRight);
+	hiddenWindowsTable->setProperty("wordWrap", false);
 
 	// 表头设置
 	hiddenWindowsTable->setColumnCount(6);
@@ -348,6 +349,8 @@ void MainWindow::setupUI()
 	hotkeyTable->verticalHeader()->setVisible(false);
 	hotkeyTable->setShowGrid(false);
 	hotkeyTable->setAlternatingRowColors(true);
+	hotkeyTable->setTextElideMode(Qt::ElideRight);
+	hotkeyTable->setProperty("wordWrap", false);
 
 	// 列宽设置
 	hotkeyTable->setColumnWidth(0, 120);  // 动作ID
