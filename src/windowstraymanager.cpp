@@ -115,8 +115,22 @@ std::vector<std::pair<HWND, std::wstring>> WindowsTrayManager::getHiddenWindows(
 std::wstring WindowsTrayManager::getWindowTitle(HWND hwnd) const
 {
     wchar_t title[256];
-    if (GetWindowText(hwnd, title, 256) > 0) {
-        return std::wstring(title);
+    if (GetWindowTextW(hwnd, title, 256) > 0) {
+        std::wstring windowTitle = std::wstring(title);
+        
+        // 过滤零宽空格和其他不可见控制字符
+        // 手动移除特定字符
+        std::wstring filteredTitle;
+        for (wchar_t ch : windowTitle) {
+            if (ch != 0x200B &&  // 零宽空格
+                ch != 0x200C &&  // 零宽非连接符
+                ch != 0x200D &&  // 零宽连接符
+                ch != 0xFEFF) {  // 零宽无中断空格
+                filteredTitle.push_back(ch);
+            }
+        }
+        
+        return filteredTitle;
     }
     return L"Unknown Window";
 }

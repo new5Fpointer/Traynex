@@ -1639,6 +1639,12 @@ void MainWindow::refreshHiddenWindowsTable()
 				QString windowTitle = trc("MainWindow", "Unknown Window");
 				if (GetWindowText(hwnd, title, 256) > 0) {
 					windowTitle = QString::fromWCharArray(title);
+					
+					// 过滤零宽空格和其他不可见控制字符
+					windowTitle.remove(QChar(0x200B));  // 零宽空格
+					windowTitle.remove(QChar(0x200C));  // 零宽非连接符
+					windowTitle.remove(QChar(0x200D));  // 零宽连接符
+					windowTitle.remove(QChar(0xFEFF));  // 零宽无中断空格
 				}
 
 				QString processName = "Unknown";
