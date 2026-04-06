@@ -19,6 +19,8 @@
 #include <QWidgetAction>
 #include <QProcess>
 #include <QFileInfo>
+#include <QClipboard>
+#include <QMimeData>
 
 #include <psapi.h>
 #include <shellapi.h>
@@ -38,6 +40,11 @@ MainWindow::MainWindow(QWidget* parent)
 	, restoreAllHiddenAction(nullptr)
 	, hideToAppTrayAction(nullptr)
 	, restoreLastAction(nullptr)
+	, copyMenu(nullptr)
+	, copyTitleAction(nullptr)
+	, copyClassAction(nullptr)
+	, copyPathAction(nullptr)
+	, copyAllAction(nullptr)
 {
 	// 创建 UI
 	setupUI();
@@ -802,6 +809,13 @@ void MainWindow::createContextMenu()
 	openFolderAction = new QAction(trc("MainWindow", "Open File Location"), this);
 	filePropsAction = new QAction(trc("MainWindow", "File Properties"), this);
 	endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
+	
+	// 复制功能
+	copyMenu = new QMenu(trc("MainWindow", "Copy"), contextMenu);
+	copyTitleAction = new QAction(trc("MainWindow", "Copy Title"), this);
+	copyClassAction = new QAction(trc("MainWindow", "Copy Class"), this);
+	copyPathAction = new QAction(trc("MainWindow", "Copy Path"), this);
+	copyAllAction = new QAction(trc("MainWindow", "Copy All"), this);
 
 	toggleOnTopAction->setCheckable(true);
 	muteAction->setCheckable(true);
@@ -820,6 +834,12 @@ void MainWindow::createContextMenu()
 	connect(openFolderAction, &QAction::triggered, this, &MainWindow::openFileLocation);
 	connect(filePropsAction, &QAction::triggered, this, &MainWindow::showFileProperties);
 	connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
+	
+	// 连接复制功能
+	connect(copyTitleAction, &QAction::triggered, this, &MainWindow::copyTitle);
+	connect(copyClassAction, &QAction::triggered, this, &MainWindow::copyClass);
+	connect(copyPathAction, &QAction::triggered, this, &MainWindow::copyPath);
+	connect(copyAllAction, &QAction::triggered, this, &MainWindow::copyAll);
 
 	auto* sliderAction = new QWidgetAction(opacityMenu);
 	auto* sliderWidget = new QWidget;
@@ -838,6 +858,15 @@ void MainWindow::createContextMenu()
 	contextMenu->addAction(toggleOnTopAction);
 	contextMenu->addAction(muteAction);
 	contextMenu->addMenu(opacityMenu);
+	contextMenu->addSeparator();
+	
+	// 添加复制菜单
+	copyMenu->addAction(copyTitleAction);
+	copyMenu->addAction(copyClassAction);
+	copyMenu->addAction(copyPathAction);
+	copyMenu->addAction(copyAllAction);
+	contextMenu->addMenu(copyMenu);
+	
 	contextMenu->addSeparator();
 	contextMenu->addAction(openFolderAction);
 	contextMenu->addAction(filePropsAction);
@@ -1348,6 +1377,15 @@ void MainWindow::retranslateUI()
 		openFolderAction->setText(trc("MainWindow", "Open File Location"));
 		filePropsAction->setText(trc("MainWindow", "File Properties"));
 		endTaskAction->setText(trc("MainWindow", "End Task"));
+		
+		// 复制菜单
+		if (copyMenu) {
+			copyMenu->setTitle(trc("MainWindow", "Copy"));
+			copyTitleAction->setText(trc("MainWindow", "Copy Title"));
+			copyClassAction->setText(trc("MainWindow", "Copy Class"));
+			copyPathAction->setText(trc("MainWindow", "Copy Path"));
+			copyAllAction->setText(trc("MainWindow", "Copy All"));
+		}
 	}
 
 	// 隐藏窗口表格右键菜单
@@ -2751,4 +2789,129 @@ void MainWindow::onHotkeyItemDoubleClicked(QTableWidgetItem* item)
 	if (item && item->column() == 2) {  // 双击热键列
 		startBindHotkey();
 	}
+}
+
+// 复制功能实现
+HWND MainWindow::getSelectedWindowFromCurrentTable() const
+{
+	// 只处理主窗口表（第0个标签页）
+	if (tabWidget->currentIndex() == 0) { // 主窗口表
+		int row = windowsTable->currentRow();
+		if (row < 0) return nullptr;
+		return reinterpret_cast<HWND>(windowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
+	}
+	return nullptr;
+}
+
+void MainWindow::copyTitle()
+{
+	HWND hwnd = getSelectedWindowFromCurrentTable();
+	if (!hwnd || !IsWindow(hwnd)) return;
+	
+	wchar_t title[256];
+	GetWindowText(hwnd, title, 256);
+	QString windowTitle = QString::fromWCharArray(title);
+	
+	// 使用原始窗口标题，不过滤任何字符
+	QApplication::clipboard()->setText(windowTitle);
+}
+
+void MainWindow::copyClass()
+{
+	HWND hwnd = getSelectedWindowFromCurrentTable();
+	if (!hwnd || !IsWindow(hwnd)) return;
+	
+	wchar_t className[256];
+	GetClassName(hwnd, className, 256);
+	QString windowClass = QString::fromWCharArray(className);
+	
+	QApplication::clipboard()->setText(windowClass);
+}
+
+void MainWindow::copyPath()
+{
+	HWND hwnd = getSelectedWindowFromCurrentTable();
+	if (!hwnd || !IsWindow(hwnd)) return;
+	
+	DWORD processId = 0;
+	GetWindowThreadProcessId(hwnd, &processId);
+	
+	QString processPath = "Unknown";
+	HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+	if (process) {
+		wchar_t processName[MAX_PATH] = L"";
+		if (GetModuleFileNameEx(process, NULL, processName, MAX_PATH)) {
+			processPath = QString::fromWCharArray(processName);
+		}
+		CloseHandle(process);
+	}
+	
+	QApplication::clipboard()->setText(processPath);
+}
+
+void MainWindow::copyAll()
+{
+	HWND hwnd = getSelectedWindowFromCurrentTable();
+	if (!hwnd || !IsWindow(hwnd)) return;
+	
+	// 获取所有信息
+	wchar_t title[256];
+	GetWindowText(hwnd, title, 256);
+	QString windowTitle = QString::fromWCharArray(title);
+	
+	// 使用原始窗口标题，不过滤任何字符
+	
+	wchar_t className[256];
+	GetClassName(hwnd, className, 256);
+	QString windowClass = QString::fromWCharArray(className);
+	
+	DWORD processId = 0;
+	GetWindowThreadProcessId(hwnd, &processId);
+	
+	QString processPath = "Unknown";
+	QString processNameStr = "Unknown";
+	HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+	if (process) {
+		wchar_t processName[MAX_PATH] = L"";
+		if (GetModuleFileNameEx(process, NULL, processName, MAX_PATH)) {
+			processPath = QString::fromWCharArray(processName);
+			processNameStr = QFileInfo(QString::fromWCharArray(processName)).fileName();
+		}
+		CloseHandle(process);
+	}
+	
+	// 创建HTML格式的文本（类似Traynard的实现）
+	QString html = QString(
+		"<table>"
+		"<tr><th>Title</th><th>Handle</th><th>Class</th><th>PID</th><th>Process</th><th>Path</th></tr>"
+		"<tr>"
+		"<td>%1</td>"
+		"<td>0x%2</td>"
+		"<td>%3</td>"
+		"<td>%4</td>"
+		"<td>%5</td>"
+		"<td>%6</td>"
+		"</tr>"
+		"</table>")
+		.arg(windowTitle.toHtmlEscaped())
+		.arg(QString::number((quintptr)hwnd, 16).toUpper())
+		.arg(windowClass.toHtmlEscaped())
+		.arg(processId)
+		.arg(processNameStr.toHtmlEscaped())
+		.arg(processPath.toHtmlEscaped());
+	
+	// 创建纯文本格式
+	QString plainText = QString("Title: %1\nHandle: 0x%2\nClass: %3\nPID: %4\nProcess: %5\nPath: %6")
+		.arg(windowTitle)
+		.arg(QString::number((quintptr)hwnd, 16).toUpper())
+		.arg(windowClass)
+		.arg(processId)
+		.arg(processNameStr)
+		.arg(processPath);
+	
+	// 设置剪贴板内容（支持HTML和纯文本）
+	QMimeData* mimeData = new QMimeData();
+	mimeData->setHtml(html);
+	mimeData->setText(plainText);
+	QApplication::clipboard()->setMimeData(mimeData);
 }

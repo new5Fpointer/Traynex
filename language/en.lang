@@ -122,6 +122,10 @@ Tray Menu=Tray Menu
 
 ; === Context Menu Actions ===
 Copy=Copy
+Copy Title=Copy Title
+Copy Class=Copy Class
+Copy Path=Copy Path
+Copy All=Copy All
 Window Class=Window Class
 Window Name=Window Name
 Application Path=Application Path
