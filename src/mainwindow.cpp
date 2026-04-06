@@ -2880,34 +2880,46 @@ void MainWindow::copyAll()
 		CloseHandle(process);
 	}
 	
-	// 创建HTML格式的文本（类似Traynard的实现）
+	// 创建HTML格式的文本（类似Traynard的实现，使用翻译后的列标题）
 	QString html = QString(
 		"<table>"
-		"<tr><th>Title</th><th>Handle</th><th>Class</th><th>PID</th><th>Process</th><th>Path</th></tr>"
+		"<tr><th>%1</th><th>%2</th><th>%3</th><th>%4</th><th>%5</th><th>%6</th></tr>"
 		"<tr>"
-		"<td>%1</td>"
-		"<td>0x%2</td>"
-		"<td>%3</td>"
-		"<td>%4</td>"
-		"<td>%5</td>"
-		"<td>%6</td>"
+		"<td>%7</td>"
+		"<td>0x%8</td>"
+		"<td>%9</td>"
+		"<td>%10</td>"
+		"<td>%11</td>"
+		"<td>%12</td>"
 		"</tr>"
 		"</table>")
-		.arg(windowTitle.toHtmlEscaped())
-		.arg(QString::number((quintptr)hwnd, 16).toUpper())
-		.arg(windowClass.toHtmlEscaped())
-		.arg(processId)
-		.arg(processNameStr.toHtmlEscaped())
-		.arg(processPath.toHtmlEscaped());
+		.arg(trc("MainWindow", "Window Title").toHtmlEscaped())      // 1: 窗口标题
+		.arg(trc("MainWindow", "Handle").toHtmlEscaped())           // 2: 句柄
+		.arg(trc("MainWindow", "Class").toHtmlEscaped())            // 3: 类
+		.arg(trc("MainWindow", "Process ID").toHtmlEscaped())       // 4: 进程ID
+		.arg(trc("MainWindow", "Process").toHtmlEscaped())          // 5: 进程
+		.arg(trc("MainWindow", "Application Path").toHtmlEscaped()) // 6: 应用程序路径
+		.arg(windowTitle.toHtmlEscaped())                           // 7: 窗口标题值
+		.arg(QString::number((quintptr)hwnd, 16).toUpper())         // 8: 句柄值
+		.arg(windowClass.toHtmlEscaped())                           // 9: 类值
+		.arg(processId)                                             // 10: 进程ID值
+		.arg(processNameStr.toHtmlEscaped())                        // 11: 进程名值
+		.arg(processPath.toHtmlEscaped());                          // 12: 路径值
 	
-	// 创建纯文本格式
-	QString plainText = QString("Title: %1\nHandle: 0x%2\nClass: %3\nPID: %4\nProcess: %5\nPath: %6")
-		.arg(windowTitle)
-		.arg(QString::number((quintptr)hwnd, 16).toUpper())
-		.arg(windowClass)
-		.arg(processId)
-		.arg(processNameStr)
-		.arg(processPath);
+	// 创建纯文本格式（使用翻译后的标签）
+	QString plainText = QString("%1: %2\n%3: 0x%4\n%5: %6\n%7: %8\n%9: %10\n%11: %12")
+		.arg(trc("MainWindow", "Window Title"))      // 1: 窗口标题
+		.arg(windowTitle)                            // 2: 窗口标题值
+		.arg(trc("MainWindow", "Handle"))            // 3: 句柄
+		.arg(QString::number((quintptr)hwnd, 16).toUpper()) // 4: 句柄值
+		.arg(trc("MainWindow", "Class"))             // 5: 类
+		.arg(windowClass)                            // 6: 类值
+		.arg(trc("MainWindow", "Process ID"))        // 7: 进程ID
+		.arg(processId)                              // 8: 进程ID值
+		.arg(trc("MainWindow", "Process"))           // 9: 进程
+		.arg(processNameStr)                         // 10: 进程名值
+		.arg(trc("MainWindow", "Application Path"))  // 11: 应用程序路径
+		.arg(processPath);                           // 12: 路径值
 	
 	// 设置剪贴板内容（支持HTML和纯文本）
 	QMimeData* mimeData = new QMimeData();
