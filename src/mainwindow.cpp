@@ -1085,17 +1085,6 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 		auto windowsList = reinterpret_cast<QList<QPair<HWND, WindowInfo>>*>(lParam);
 		DWORD currentProcessId = GetCurrentProcessId();
 
-		// 获取窗口标题
-		wchar_t title[256];
-		GetWindowText(hwnd, title, 256);
-		QString windowTitle = QString::fromWCharArray(title);
-
-		// 过滤零宽空格和其他不可见控制字符
-		windowTitle.remove(QChar(0x200B));  // 零宽空格
-		windowTitle.remove(QChar(0x200C));  // 零宽非连接符
-		windowTitle.remove(QChar(0x200D));  // 零宽连接符
-		windowTitle.remove(QChar(0xFEFF));  // 零宽无中断空格
-
 		// 过滤条件
 		// 1.窗口有效性
 		if (!IsWindow(hwnd) || !IsWindowVisible(hwnd)) {
@@ -1107,7 +1096,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 		if (processId == currentProcessId) {
 			return TRUE;
 		}
-		// 3.标题非空
+		// 3.工具窗口过滤
 		LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
 		if (exStyle & WS_EX_TOOLWINDOW) {
 			return TRUE;
@@ -1129,11 +1118,10 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 			return TRUE;
 		}
 
+		// 6.Application Frame Window 检查
 		wchar_t className[256];
 		GetClassName(hwnd, className, 256);
 		QString windowClass = QString::fromWCharArray(className);
-
-		// 6.Application Frame Window 检查
 		if (windowClass == "ApplicationFrameWindow" ||
 			windowClass == "Windows.UI.Core.CoreWindow" ||
 			windowClass == "StartMenuSizingFrame" ||
@@ -1141,17 +1129,43 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 			return TRUE;
 		}
 
-		// 获取进程名
+		// 使用getWindowInfo获取窗口信息（注意：这里需要调用MainWindow的getWindowInfo）
+		// 由于在lambda中无法直接调用成员函数，我们暂时复制getWindowInfo的逻辑
+		WindowInfo info;
+		info.hwnd = hwnd;
+		
+		// 获取窗口标题
+		wchar_t title[256];
+		GetWindowText(hwnd, title, 256);
+		info.originalTitle = QString::fromWCharArray(title);
+		info.title = info.originalTitle;
+		
+		// 过滤零宽空格和其他不可见控制字符
+		info.title.remove(QChar(0x200B));  // 零宽空格
+		info.title.remove(QChar(0x200C));  // 零宽非连接符
+		info.title.remove(QChar(0x200D));  // 零宽连接符
+		info.title.remove(QChar(0xFEFF));  // 零宽无中断空格
+		
+		info.className = windowClass;
+		info.processId = processId;
+		
+		// 获取进程路径和名称
+		info.processPath = "Unknown";
+		info.processName = "Unknown";
+		
 		HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-		wchar_t processName[MAX_PATH] = L"";
-		QString processNameStr = "Unknown";
-
 		if (process) {
-			GetModuleFileNameEx(process, NULL, processName, MAX_PATH);
-			processNameStr = QFileInfo(QString::fromWCharArray(processName)).fileName();
+			wchar_t processPath[MAX_PATH] = L"";
+			if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
+				info.processPath = QString::fromWCharArray(processPath);
+				info.processName = QFileInfo(info.processPath).fileName();
+			}
 			CloseHandle(process);
 		}
-
+		
+		info.isVisible = IsWindowVisible(hwnd);
+		info.isHidden = false; // 会在外部设置
+		
 		// 获取窗口图标
 		QIcon windowIcon;
 		HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
@@ -1192,16 +1206,7 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 				DestroyIcon(hIcon);
 			}
 		}
-
-		WindowInfo info;
-		info.title = windowTitle;
-		info.processName = processNameStr;
-		info.className = windowClass;
-		info.processId = processId;
-		info.hwnd = hwnd;
-		info.isVisible = IsWindowVisible(hwnd);
-		info.isHidden = false; // 会在外部设置
-		info.icon = windowIcon; // 设置图标
+		info.icon = windowIcon;
 
 		windowsList->append(qMakePair(hwnd, info));
 		return TRUE;
@@ -1215,6 +1220,72 @@ QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
 	}
 
 	return windows;
+}
+
+MainWindow::WindowInfo MainWindow::getWindowInfo(HWND hwnd, bool filterInvisibleChars) const
+{
+	WindowInfo info;
+	info.hwnd = hwnd;
+	
+	if (!hwnd || !IsWindow(hwnd)) {
+		return info;
+	}
+	
+	// 获取窗口标题
+	wchar_t title[256];
+	GetWindowText(hwnd, title, 256);
+	info.originalTitle = QString::fromWCharArray(title);
+	info.title = info.originalTitle;
+	
+	// 如果需要过滤不可见字符
+	if (filterInvisibleChars) {
+		info.title.remove(QChar(0x200B));  // 零宽空格
+		info.title.remove(QChar(0x200C));  // 零宽非连接符
+		info.title.remove(QChar(0x200D));  // 零宽连接符
+		info.title.remove(QChar(0xFEFF));  // 零宽无中断空格
+	}
+	
+	// 获取窗口类名
+	wchar_t className[256];
+	GetClassName(hwnd, className, 256);
+	info.className = QString::fromWCharArray(className);
+	
+	// 获取进程ID
+	DWORD processId;
+	GetWindowThreadProcessId(hwnd, &processId);
+	info.processId = processId;
+	
+	// 获取进程路径和名称
+	info.processPath = "Unknown";
+	info.processName = "Unknown";
+	
+	HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+	if (process) {
+		wchar_t processPath[MAX_PATH] = L"";
+		if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
+			info.processPath = QString::fromWCharArray(processPath);
+			info.processName = QFileInfo(info.processPath).fileName();
+		}
+		CloseHandle(process);
+	}
+	
+	// 获取窗口可见性状态
+	info.isVisible = IsWindowVisible(hwnd);
+	
+	// 检查是否为隐藏窗口
+	auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+	info.isHidden = false;
+	for (const auto& hidden : hiddenWindows) {
+		if (hidden.first == hwnd) {
+			info.isHidden = true;
+			break;
+		}
+	}
+	
+	// 获取窗口图标
+	info.icon = getWindowIcon(hwnd);
+	
+	return info;
 }
 
 HWND MainWindow::getSelectedWindow() const
@@ -1238,8 +1309,9 @@ void MainWindow::endTask()
 {
 	HWND hwnd = getSelectedWindow();
 	if (hwnd) {
-		DWORD processId;
-		GetWindowThreadProcessId(hwnd, &processId);
+		// 使用getWindowInfo获取进程ID
+		WindowInfo info = getWindowInfo(hwnd);
+		DWORD processId = info.processId;
 
 		HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, processId);
 		if (process) {
@@ -1629,41 +1701,15 @@ void MainWindow::refreshHiddenWindowsTable()
 	for (const auto& window : systemHiddenWindows) {
 		HWND hwnd = window.first;
 		if (hwnd && IsWindow(hwnd)) {
-			// 获取进程名、类名、进程ID和图标
-			QString processName = "Unknown";
-			QString className = "Unknown";
-			DWORD processId;
-			QIcon windowIcon;
-
-			GetWindowThreadProcessId(hwnd, &processId);
-
-			HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-			if (process) {
-				wchar_t processPath[MAX_PATH] = L"";
-				if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
-					processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
-				}
-				CloseHandle(process);
-			}
-
-			wchar_t classBuffer[256];
-			if (GetClassName(hwnd, classBuffer, 256)) {
-				className = QString::fromWCharArray(classBuffer);
-			}
-
-			// 获取图标
-			HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
-			if (!hIcon) hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
-			if (hIcon) {
-				windowIcon = QIcon(QPixmap::fromImage(QImage::fromHICON(hIcon)));
-			}
-
+			// 使用getWindowInfo获取窗口信息
+			WindowInfo info = getWindowInfo(hwnd);
+			
 			allHiddenWindows[hwnd] = std::make_tuple(
 				QString::fromStdWString(window.second),
-				processName,
-				className,
-				processId,
-				windowIcon
+				info.processName,
+				info.className,
+				info.processId,
+				info.icon
 			);
 		}
 	}
@@ -1673,47 +1719,10 @@ void MainWindow::refreshHiddenWindowsTable()
 		HWND hwnd = it.key();
 		if (hwnd && IsWindow(hwnd)) {
 			if (!allHiddenWindows.contains(hwnd)) {
-				wchar_t title[256];
-				QString windowTitle = trc("MainWindow", "Unknown Window");
-				if (GetWindowText(hwnd, title, 256) > 0) {
-					windowTitle = QString::fromWCharArray(title);
-					
-					// 过滤零宽空格和其他不可见控制字符
-					windowTitle.remove(QChar(0x200B));  // 零宽空格
-					windowTitle.remove(QChar(0x200C));  // 零宽非连接符
-					windowTitle.remove(QChar(0x200D));  // 零宽连接符
-					windowTitle.remove(QChar(0xFEFF));  // 零宽无中断空格
-				}
-
-				QString processName = "Unknown";
-				QString className = "Unknown";
-				DWORD processId;
-				QIcon windowIcon;
-
-				GetWindowThreadProcessId(hwnd, &processId);
-
-				HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-				if (process) {
-					wchar_t processPath[MAX_PATH] = L"";
-					if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
-						processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
-					}
-					CloseHandle(process);
-				}
-
-				wchar_t classBuffer[256];
-				if (GetClassName(hwnd, classBuffer, 256)) {
-					className = QString::fromWCharArray(classBuffer);
-				}
-
-				// 获取图标
-				HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
-				if (!hIcon) hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
-				if (hIcon) {
-					windowIcon = QIcon(QPixmap::fromImage(QImage::fromHICON(hIcon)));
-				}
-
-				allHiddenWindows[hwnd] = std::make_tuple(windowTitle, processName, className, processId, windowIcon);
+				// 使用getWindowInfo获取窗口信息
+				WindowInfo info = getWindowInfo(hwnd);
+				
+				allHiddenWindows[hwnd] = std::make_tuple(info.title, info.processName, info.className, info.processId, info.icon);
 			}
 		}
 	}
@@ -1878,14 +1887,9 @@ void MainWindow::hideToAppTray()
 		return;
 	}
 
-	// 检查是否是受保护的窗口
-	wchar_t className[256];
-	if (!GetClassName(hwnd, className, 256)) {
-		QMessageBox::warning(this, trc("MainWindow", "Error"),
-			trc("MainWindow", "Cannot get window class name"));
-		return;
-	}
-
+	// 使用getWindowInfo获取窗口信息
+	WindowInfo info = getWindowInfo(hwnd);
+	
 	// 禁止隐藏系统关键窗口
 	const wchar_t* restrictedWindows[] = {
 		L"WorkerW",
@@ -1894,20 +1898,16 @@ void MainWindow::hideToAppTray()
 	};
 
 	for (const wchar_t* restricted : restrictedWindows) {
-		if (wcscmp(className, restricted) == 0) {
+		if (info.className.compare(QString::fromWCharArray(restricted), Qt::CaseInsensitive) == 0) {
 			QMessageBox::warning(this, trc("MainWindow", "Error"),
 				trc("MainWindow", "Cannot hide system windows"));
 			return;
 		}
 	}
 
-	// 获取窗口标题
-	wchar_t title[256];
-	GetWindowText(hwnd, title, 256);
-	QString windowTitle = QString::fromWCharArray(title);
-
-	// 获取窗口图标
-	QIcon windowIcon = getWindowIcon(hwnd);
+	// 使用从getWindowInfo获取的标题和图标
+	QString windowTitle = info.title;
+	QIcon windowIcon = info.icon;
 
 	// 隐藏窗口
 	ShowWindow(hwnd, SW_HIDE);
@@ -2513,8 +2513,9 @@ void MainWindow::toggleMuteWindow()
 		return;
 	}
 
-	DWORD processId;
-	GetWindowThreadProcessId(hwnd, &processId);
+	// 使用getWindowInfo获取进程ID
+	WindowInfo info = getWindowInfo(hwnd);
+	DWORD processId = info.processId;
 
 	bool current = muteStates.value(processId, false);
 	bool success = VolumeControl::SetProcessMuteWithTimeout(processId, !current, 1000);
@@ -2808,12 +2809,11 @@ void MainWindow::copyTitle()
 	HWND hwnd = getSelectedWindowFromCurrentTable();
 	if (!hwnd || !IsWindow(hwnd)) return;
 	
-	wchar_t title[256];
-	GetWindowText(hwnd, title, 256);
-	QString windowTitle = QString::fromWCharArray(title);
+	// 使用getWindowInfo获取窗口信息，不过滤不可见字符
+	WindowInfo info = getWindowInfo(hwnd, false);
 	
 	// 使用原始窗口标题，不过滤任何字符
-	QApplication::clipboard()->setText(windowTitle);
+	QApplication::clipboard()->setText(info.originalTitle);
 }
 
 void MainWindow::copyClass()
@@ -2821,11 +2821,10 @@ void MainWindow::copyClass()
 	HWND hwnd = getSelectedWindowFromCurrentTable();
 	if (!hwnd || !IsWindow(hwnd)) return;
 	
-	wchar_t className[256];
-	GetClassName(hwnd, className, 256);
-	QString windowClass = QString::fromWCharArray(className);
+	// 使用getWindowInfo获取窗口信息
+	WindowInfo info = getWindowInfo(hwnd);
 	
-	QApplication::clipboard()->setText(windowClass);
+	QApplication::clipboard()->setText(info.className);
 }
 
 void MainWindow::copyPath()
@@ -2833,20 +2832,10 @@ void MainWindow::copyPath()
 	HWND hwnd = getSelectedWindowFromCurrentTable();
 	if (!hwnd || !IsWindow(hwnd)) return;
 	
-	DWORD processId = 0;
-	GetWindowThreadProcessId(hwnd, &processId);
+	// 使用getWindowInfo获取窗口信息
+	WindowInfo info = getWindowInfo(hwnd);
 	
-	QString processPath = "Unknown";
-	HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-	if (process) {
-		wchar_t processName[MAX_PATH] = L"";
-		if (GetModuleFileNameEx(process, NULL, processName, MAX_PATH)) {
-			processPath = QString::fromWCharArray(processName);
-		}
-		CloseHandle(process);
-	}
-	
-	QApplication::clipboard()->setText(processPath);
+	QApplication::clipboard()->setText(info.processPath);
 }
 
 void MainWindow::copyAll()
@@ -2854,31 +2843,8 @@ void MainWindow::copyAll()
 	HWND hwnd = getSelectedWindowFromCurrentTable();
 	if (!hwnd || !IsWindow(hwnd)) return;
 	
-	// 获取所有信息
-	wchar_t title[256];
-	GetWindowText(hwnd, title, 256);
-	QString windowTitle = QString::fromWCharArray(title);
-	
-	// 使用原始窗口标题，不过滤任何字符
-	
-	wchar_t className[256];
-	GetClassName(hwnd, className, 256);
-	QString windowClass = QString::fromWCharArray(className);
-	
-	DWORD processId = 0;
-	GetWindowThreadProcessId(hwnd, &processId);
-	
-	QString processPath = "Unknown";
-	QString processNameStr = "Unknown";
-	HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-	if (process) {
-		wchar_t processName[MAX_PATH] = L"";
-		if (GetModuleFileNameEx(process, NULL, processName, MAX_PATH)) {
-			processPath = QString::fromWCharArray(processName);
-			processNameStr = QFileInfo(QString::fromWCharArray(processName)).fileName();
-		}
-		CloseHandle(process);
-	}
+	// 使用getWindowInfo获取窗口信息，不过滤不可见字符
+	WindowInfo info = getWindowInfo(hwnd, false);
 	
 	// 创建HTML格式的文本（类似Traynard的实现，使用翻译后的列标题）
 	QString html = QString(
@@ -2899,27 +2865,27 @@ void MainWindow::copyAll()
 		.arg(trc("MainWindow", "Process ID").toHtmlEscaped())       // 4: 进程ID
 		.arg(trc("MainWindow", "Process").toHtmlEscaped())          // 5: 进程
 		.arg(trc("MainWindow", "Application Path").toHtmlEscaped()) // 6: 应用程序路径
-		.arg(windowTitle.toHtmlEscaped())                           // 7: 窗口标题值
+		.arg(info.originalTitle.toHtmlEscaped())                    // 7: 窗口标题值（原始标题）
 		.arg(QString::number((quintptr)hwnd, 16).toUpper())         // 8: 句柄值
-		.arg(windowClass.toHtmlEscaped())                           // 9: 类值
-		.arg(processId)                                             // 10: 进程ID值
-		.arg(processNameStr.toHtmlEscaped())                        // 11: 进程名值
-		.arg(processPath.toHtmlEscaped());                          // 12: 路径值
+		.arg(info.className.toHtmlEscaped())                        // 9: 类值
+		.arg(info.processId)                                        // 10: 进程ID值
+		.arg(info.processName.toHtmlEscaped())                      // 11: 进程名值
+		.arg(info.processPath.toHtmlEscaped());                     // 12: 路径值
 	
 	// 创建纯文本格式（使用翻译后的标签）
 	QString plainText = QString("%1: %2\n%3: 0x%4\n%5: %6\n%7: %8\n%9: %10\n%11: %12")
 		.arg(trc("MainWindow", "Window Title"))      // 1: 窗口标题
-		.arg(windowTitle)                            // 2: 窗口标题值
+		.arg(info.originalTitle)                     // 2: 窗口标题值（原始标题）
 		.arg(trc("MainWindow", "Handle"))            // 3: 句柄
 		.arg(QString::number((quintptr)hwnd, 16).toUpper()) // 4: 句柄值
 		.arg(trc("MainWindow", "Class"))             // 5: 类
-		.arg(windowClass)                            // 6: 类值
+		.arg(info.className)                         // 6: 类值
 		.arg(trc("MainWindow", "Process ID"))        // 7: 进程ID
-		.arg(processId)                              // 8: 进程ID值
+		.arg(info.processId)                         // 8: 进程ID值
 		.arg(trc("MainWindow", "Process"))           // 9: 进程
-		.arg(processNameStr)                         // 10: 进程名值
+		.arg(info.processName)                       // 10: 进程名值
 		.arg(trc("MainWindow", "Application Path"))  // 11: 应用程序路径
-		.arg(processPath);                           // 12: 路径值
+		.arg(info.processPath);                      // 12: 路径值
 	
 	// 设置剪贴板内容（支持HTML和纯文本）
 	QMimeData* mimeData = new QMimeData();

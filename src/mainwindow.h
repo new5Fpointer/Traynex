@@ -121,7 +121,9 @@ private:
 
 	struct WindowInfo {
 		QString title;
+		QString originalTitle;  // 原始标题，不过滤字符
 		QString processName;
+		QString processPath;    // 完整进程路径
 		QString className;
 		DWORD processId;
 		HWND hwnd;
@@ -130,6 +132,7 @@ private:
 		QIcon icon;
 	};
 	QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
+	WindowInfo getWindowInfo(HWND hwnd, bool filterInvisibleChars = true) const;
 	QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
 	QList<HWND> m_hiddenWindowOrder;
 	QMap<DWORD, bool> muteStates;
