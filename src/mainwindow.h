@@ -62,6 +62,13 @@ private slots:
 	void openFileLocation();
 	void showFileProperties();
 	void onResetDefaults();
+	
+	// 复制功能
+	HWND getSelectedWindowFromCurrentTable() const;
+	void copyTitle();
+	void copyClass();
+	void copyPath();
+	void copyAll();
 
 	void onHotkeySelectionChanged();
 	void startBindHotkey();
@@ -149,6 +156,13 @@ private:
 	QAction* openFolderAction;
 	QAction* filePropsAction;
 	QAction* endTaskAction;
+	
+	// 复制功能菜单
+	QMenu* copyMenu;
+	QAction* copyTitleAction;
+	QAction* copyClassAction;
+	QAction* copyPathAction;
+	QAction* copyAllAction;
 
 	// 音量子控件
 	QMenu* opacityMenu;
