@@ -887,7 +887,7 @@ void MainWindow::createHeaderContextMenu()
 	headerContextMenu = new QMenu(this);
 
 	// 创建列显示/隐藏动作
-	showIconColumnAction = new QAction(trc("MainWindow", "Icon"), this);
+	showIconColumnAction = new QAction(trc("MainWindow", "Icon Column"), this);
 	showTitleColumnAction = new QAction(trc("MainWindow", "Window Title"), this);
 	showHandleColumnAction = new QAction(trc("MainWindow", "Handle"), this);
 	showClassColumnAction = new QAction(trc("MainWindow", "Class"), this);
