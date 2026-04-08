@@ -196,6 +196,7 @@ private:
 	QAction* showClassColumnAction;
 	QAction* showPidColumnAction;
 	QAction* showProcessColumnAction;
+	QAction* showProgramPathColumnAction;
 	QAction* resetColumnWidthsAction;
 
 	// 设置页面组件

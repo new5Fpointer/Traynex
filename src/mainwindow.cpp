@@ -123,14 +123,15 @@ void MainWindow::setupUI()
 	windowsTable->setProperty("wordWrap", false);
 
 	// 表头设置
-	windowsTable->setColumnCount(6);
+	windowsTable->setColumnCount(7);
 	windowsTable->setHorizontalHeaderLabels({
 		"",
 		trc("MainWindow", "Window Title"),
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
 	
 	// 为表头添加悬浮提示
@@ -167,12 +168,17 @@ void MainWindow::setupUI()
 	windowsTable->setColumnWidth(2, 80);  // 句柄
 	windowsTable->setColumnWidth(3, 120); // 窗口类
 	windowsTable->setColumnWidth(4, 80);  // 进程ID
-	windowsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
+	windowsTable->setColumnWidth(5, 200); // 进程名
+	windowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
 	windowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+	windowsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
+	
+	// 默认隐藏程序路径列
+	windowsTable->setColumnHidden(6, true);
 
 
 	// 组装布局
@@ -208,14 +214,15 @@ void MainWindow::setupUI()
 	hiddenWindowsTable->setProperty("wordWrap", false);
 
 	// 表头设置
-	hiddenWindowsTable->setColumnCount(6);
+	hiddenWindowsTable->setColumnCount(7);
 	hiddenWindowsTable->setHorizontalHeaderLabels({
 		"",
 		trc("MainWindow", "Window Title"),
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
 	
 	// 为表头添加悬浮提示
@@ -252,12 +259,17 @@ void MainWindow::setupUI()
 	hiddenWindowsTable->setColumnWidth(2, 80);  // 句柄
 	hiddenWindowsTable->setColumnWidth(3, 120); // 窗口类
 	hiddenWindowsTable->setColumnWidth(4, 80);  // 进程ID
-	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
+	hiddenWindowsTable->setColumnWidth(5, 200); // 进程名
+	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
+	
+	// 默认隐藏程序路径列
+	hiddenWindowsTable->setColumnHidden(6, true);
 
 	// 组装布局
 	hiddenLayout->addWidget(hiddenWindowsTable);
@@ -893,6 +905,7 @@ void MainWindow::createHeaderContextMenu()
 	showClassColumnAction = new QAction(trc("MainWindow", "Class"), this);
 	showPidColumnAction = new QAction(trc("MainWindow", "Process ID"), this);
 	showProcessColumnAction = new QAction(trc("MainWindow", "Process"), this);
+	showProgramPathColumnAction = new QAction(trc("MainWindow", "Program Path"), this);
 	resetColumnWidthsAction = new QAction(trc("MainWindow", "Reset Column Widths"), this);
 
 	// 设置所有动作为可勾选
@@ -902,14 +915,16 @@ void MainWindow::createHeaderContextMenu()
 	showClassColumnAction->setCheckable(true);
 	showPidColumnAction->setCheckable(true);
 	showProcessColumnAction->setCheckable(true);
+	showProgramPathColumnAction->setCheckable(true);
 
-	// 默认所有列都显示
+	// 默认所有列都显示（程序路径列默认隐藏）
 	showIconColumnAction->setChecked(true);
 	showTitleColumnAction->setChecked(true);
 	showHandleColumnAction->setChecked(true);
 	showClassColumnAction->setChecked(true);
 	showPidColumnAction->setChecked(true);
 	showProcessColumnAction->setChecked(true);
+	showProgramPathColumnAction->setChecked(false);
 
 	// 连接信号
 	connect(showIconColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(0); });
@@ -918,6 +933,7 @@ void MainWindow::createHeaderContextMenu()
 	connect(showClassColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(3); });
 	connect(showPidColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(4); });
 	connect(showProcessColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(5); });
+	connect(showProgramPathColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(6); });
 	connect(resetColumnWidthsAction, &QAction::triggered, [this]() { 
 		resetTableColumnWidths(windowsTable);
 		resetTableColumnWidths(hiddenWindowsTable);
@@ -930,6 +946,7 @@ void MainWindow::createHeaderContextMenu()
 	headerContextMenu->addAction(showClassColumnAction);
 	headerContextMenu->addAction(showPidColumnAction);
 	headerContextMenu->addAction(showProcessColumnAction);
+	headerContextMenu->addAction(showProgramPathColumnAction);
 	headerContextMenu->addSeparator();
 	headerContextMenu->addAction(resetColumnWidthsAction);
 }
@@ -943,6 +960,7 @@ void MainWindow::onTableHeaderContextMenu(const QPoint& pos)
 	showClassColumnAction->setChecked(!windowsTable->isColumnHidden(3));
 	showPidColumnAction->setChecked(!windowsTable->isColumnHidden(4));
 	showProcessColumnAction->setChecked(!windowsTable->isColumnHidden(5));
+	showProgramPathColumnAction->setChecked(!windowsTable->isColumnHidden(6));
 
 	// 显示菜单
 	headerContextMenu->exec(windowsTable->horizontalHeader()->viewport()->mapToGlobal(pos));
@@ -957,6 +975,7 @@ void MainWindow::onHiddenTableHeaderContextMenu(const QPoint& pos)
 	showClassColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(3));
 	showPidColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(4));
 	showProcessColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(5));
+	showProgramPathColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(6));
 
 	// 显示菜单
 	headerContextMenu->exec(hiddenWindowsTable->horizontalHeader()->viewport()->mapToGlobal(pos));
@@ -982,9 +1001,10 @@ void MainWindow::resetTableColumnWidths(QTableWidget* table)
 	table->setColumnWidth(2, 80);   // 句柄
 	table->setColumnWidth(3, 120);  // 窗口类
 	table->setColumnWidth(4, 80);   // 进程ID
+	table->setColumnWidth(5, 200);  // 进程名
 	
-	// 最后一列保持拉伸
-	table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
+	// 程序路径列保持拉伸
+	table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
 }
 
 void MainWindow::onTableContextMenu(const QPoint& pos)
@@ -1102,15 +1122,16 @@ void MainWindow::refreshWindowsTable()
 	windowsTable->setSortingEnabled(false);
 	windowsTable->setRowCount(0);
 
-	// 设置列数为6，添加图标列
-	windowsTable->setColumnCount(6);
+	// 设置列数为7，添加图标列和程序路径列
+	windowsTable->setColumnCount(7);
 	windowsTable->setHorizontalHeaderLabels({
 		"", // 图标列
 		trc("MainWindow", "Window Title"),
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
 
 	for (const auto& window : currentWindowsInfo) {
@@ -1146,16 +1167,21 @@ void MainWindow::refreshWindowsTable()
 		QTableWidgetItem* processItem = new QTableWidgetItem(window.second.processName);
 		processItem->setToolTip(window.second.processName);
 
+		// 程序路径
+		QTableWidgetItem* pathItem = new QTableWidgetItem(window.second.processPath);
+		pathItem->setToolTip(window.second.processPath);
+
 		windowsTable->setItem(row, 0, iconItem);     // 图标
 		windowsTable->setItem(row, 1, titleItem);    // 窗口标题
 		windowsTable->setItem(row, 2, handleItem);   // 句柄
 		windowsTable->setItem(row, 3, classItem);    // 类
 		windowsTable->setItem(row, 4, pidItem);      // 进程ID
 		windowsTable->setItem(row, 5, processItem);  // 进程名
+		windowsTable->setItem(row, 6, pathItem);     // 程序路径
 
 		// 隐藏窗口显示为灰色
 		if (window.second.isHidden) {
-			for (int col = 0; col < 6; ++col) {
+			for (int col = 0; col < 7; ++col) {
 				if (auto item = windowsTable->item(row, col)) {
 					item->setForeground(Qt::gray);
 				}
@@ -1470,7 +1496,8 @@ void MainWindow::retranslateUI()
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
 
 	hiddenWindowsTable->setHorizontalHeaderLabels({
@@ -1479,7 +1506,8 @@ void MainWindow::retranslateUI()
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
 
 	// 标签页标题
@@ -1588,6 +1616,7 @@ void MainWindow::retranslateUI()
 		showClassColumnAction->setText(trc("MainWindow", "Class"));
 		showPidColumnAction->setText(trc("MainWindow", "Process ID"));
 		showProcessColumnAction->setText(trc("MainWindow", "Process"));
+		showProgramPathColumnAction->setText(trc("MainWindow", "Program Path"));
 		resetColumnWidthsAction->setText(trc("MainWindow", "Reset Column Widths"));
 	}
 
