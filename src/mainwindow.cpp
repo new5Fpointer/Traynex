@@ -170,7 +170,7 @@ void MainWindow::setupUI()
 	windowsTable->setColumnWidth(4, 80);  // 进程ID
 	windowsTable->setColumnWidth(5, 200); // 进程名
 	windowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
-	windowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+	windowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);      // 图标列固定宽度
 	windowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
@@ -261,7 +261,7 @@ void MainWindow::setupUI()
 	hiddenWindowsTable->setColumnWidth(4, 80);  // 进程ID
 	hiddenWindowsTable->setColumnWidth(5, 200); // 进程名
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
-	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);      // 图标列固定宽度
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
