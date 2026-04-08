@@ -75,12 +75,19 @@ private slots:
 	void clearSelectedHotkey();
 	void onHotkeyItemDoubleClicked(QTableWidgetItem* item);
 
+	// 表头右键菜单功能
+	void onTableHeaderContextMenu(const QPoint& pos);
+	void onHiddenTableHeaderContextMenu(const QPoint& pos);
+	void toggleColumnVisibility(int column);
+	void resetTableColumnWidths(QTableWidget* table);
+
 protected:
 	void closeEvent(QCloseEvent* event) override;
 	bool eventFilter(QObject* obj, QEvent* event) override;
 
 private:
 	void createTrayIcon();
+	void createHeaderContextMenu();
 	void setupUI();
 	void setupConnections();
 	void loadSettings();
@@ -180,6 +187,16 @@ private:
 	QAction* restoreHiddenAction;
 	QAction* restoreLastHiddenAction;
 	QAction* restoreAllHiddenAction;
+
+	// 表头右键菜单
+	QMenu* headerContextMenu;
+	QAction* showIconColumnAction;
+	QAction* showTitleColumnAction;
+	QAction* showHandleColumnAction;
+	QAction* showClassColumnAction;
+	QAction* showPidColumnAction;
+	QAction* showProcessColumnAction;
+	QAction* resetColumnWidthsAction;
 
 	// 设置页面组件
 	QCheckBox* startWithSystemCheck;

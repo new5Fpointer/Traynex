@@ -180,10 +180,15 @@ void MainWindow::setupUI()
 
 	// 创建右键菜单
 	createContextMenu();
+	createHeaderContextMenu();
 
 	// 连接信号
 	connect(windowsTable, &QTableWidget::customContextMenuRequested,
 		this, &MainWindow::onTableContextMenu);
+	
+	// 连接表头右键信号
+	connect(windowsTable->horizontalHeader(), &QHeaderView::customContextMenuRequested,
+		this, &MainWindow::onTableHeaderContextMenu);
 
 	// === 隐藏窗口页面 ===
 	QWidget* hiddenTab = new QWidget();
@@ -258,6 +263,10 @@ void MainWindow::setupUI()
 	// 连接信号
 	connect(hiddenWindowsTable, &QTableWidget::customContextMenuRequested,
 		this, &MainWindow::onHiddenTableContextMenu);
+	
+	// 连接隐藏窗口表格表头右键信号
+	connect(hiddenWindowsTable->horizontalHeader(), &QHeaderView::customContextMenuRequested,
+		this, &MainWindow::onHiddenTableHeaderContextMenu);
 
 	// === 设置页面 ===
 	QWidget* settingsTab = new QWidget();
@@ -869,6 +878,111 @@ void MainWindow::createContextMenu()
 	contextMenu->addAction(filePropsAction);
 	contextMenu->addSeparator();
 	contextMenu->addAction(endTaskAction);
+}
+
+void MainWindow::createHeaderContextMenu()
+{
+	headerContextMenu = new QMenu(this);
+
+	// 创建列显示/隐藏动作
+	showIconColumnAction = new QAction(trc("MainWindow", "Icon"), this);
+	showTitleColumnAction = new QAction(trc("MainWindow", "Window Title"), this);
+	showHandleColumnAction = new QAction(trc("MainWindow", "Handle"), this);
+	showClassColumnAction = new QAction(trc("MainWindow", "Class"), this);
+	showPidColumnAction = new QAction(trc("MainWindow", "Process ID"), this);
+	showProcessColumnAction = new QAction(trc("MainWindow", "Process"), this);
+	resetColumnWidthsAction = new QAction(trc("MainWindow", "Reset Column Widths"), this);
+
+	// 设置所有动作为可勾选
+	showIconColumnAction->setCheckable(true);
+	showTitleColumnAction->setCheckable(true);
+	showHandleColumnAction->setCheckable(true);
+	showClassColumnAction->setCheckable(true);
+	showPidColumnAction->setCheckable(true);
+	showProcessColumnAction->setCheckable(true);
+
+	// 默认所有列都显示
+	showIconColumnAction->setChecked(true);
+	showTitleColumnAction->setChecked(true);
+	showHandleColumnAction->setChecked(true);
+	showClassColumnAction->setChecked(true);
+	showPidColumnAction->setChecked(true);
+	showProcessColumnAction->setChecked(true);
+
+	// 连接信号
+	connect(showIconColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(0); });
+	connect(showTitleColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(1); });
+	connect(showHandleColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(2); });
+	connect(showClassColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(3); });
+	connect(showPidColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(4); });
+	connect(showProcessColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(5); });
+	connect(resetColumnWidthsAction, &QAction::triggered, [this]() { 
+		resetTableColumnWidths(windowsTable);
+		resetTableColumnWidths(hiddenWindowsTable);
+	});
+
+	// 添加动作到菜单
+	headerContextMenu->addAction(showIconColumnAction);
+	headerContextMenu->addAction(showTitleColumnAction);
+	headerContextMenu->addAction(showHandleColumnAction);
+	headerContextMenu->addAction(showClassColumnAction);
+	headerContextMenu->addAction(showPidColumnAction);
+	headerContextMenu->addAction(showProcessColumnAction);
+	headerContextMenu->addSeparator();
+	headerContextMenu->addAction(resetColumnWidthsAction);
+}
+
+void MainWindow::onTableHeaderContextMenu(const QPoint& pos)
+{
+	// 更新菜单项状态
+	showIconColumnAction->setChecked(!windowsTable->isColumnHidden(0));
+	showTitleColumnAction->setChecked(!windowsTable->isColumnHidden(1));
+	showHandleColumnAction->setChecked(!windowsTable->isColumnHidden(2));
+	showClassColumnAction->setChecked(!windowsTable->isColumnHidden(3));
+	showPidColumnAction->setChecked(!windowsTable->isColumnHidden(4));
+	showProcessColumnAction->setChecked(!windowsTable->isColumnHidden(5));
+
+	// 显示菜单
+	headerContextMenu->exec(windowsTable->horizontalHeader()->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::onHiddenTableHeaderContextMenu(const QPoint& pos)
+{
+	// 更新菜单项状态
+	showIconColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(0));
+	showTitleColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(1));
+	showHandleColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(2));
+	showClassColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(3));
+	showPidColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(4));
+	showProcessColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(5));
+
+	// 显示菜单
+	headerContextMenu->exec(hiddenWindowsTable->horizontalHeader()->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::toggleColumnVisibility(int column)
+{
+	// 切换主表格列的显示/隐藏
+	bool isHidden = windowsTable->isColumnHidden(column);
+	windowsTable->setColumnHidden(column, !isHidden);
+	
+	// 切换隐藏窗口表格列的显示/隐藏
+	hiddenWindowsTable->setColumnHidden(column, !isHidden);
+}
+
+void MainWindow::resetTableColumnWidths(QTableWidget* table)
+{
+	if (!table) return;
+
+	// 恢复默认列宽
+	table->setColumnWidth(0, 24);   // 图标列
+	table->setColumnWidth(1, 300);  // 标题
+	table->setColumnWidth(2, 80);   // 句柄
+	table->setColumnWidth(3, 120);  // 窗口类
+	table->setColumnWidth(4, 80);   // 进程ID
+	
+	// 最后一列保持拉伸
+	table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
 }
 
 void MainWindow::onTableContextMenu(const QPoint& pos)
