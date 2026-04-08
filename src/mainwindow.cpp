@@ -473,13 +473,11 @@ void MainWindow::setupUI()
 
 	QPushButton* githubButton = new QPushButton(trc("MainWindow", "Visit GitHub Repository"));
 	githubButton->setObjectName("githubButton");
-
-	QPushButton* checkUpdateButton = new QPushButton(trc("MainWindow", "Check for Updates"));
-	checkUpdateButton->setObjectName("checkUpdateButton");
+	githubButton->setStyleSheet("QPushButton { padding: 8px; font-weight: bold; }");
 
 	aboutLayout->addWidget(aboutLabel);
+	aboutLayout->addSpacing(20);
 	aboutLayout->addWidget(githubButton);
-	aboutLayout->addWidget(checkUpdateButton);
 	aboutLayout->addStretch();
 
 	// 添加标签页
@@ -496,7 +494,6 @@ void MainWindow::setupUI()
 	connect(githubButton, &QPushButton::clicked, []() {
 		QDesktopServices::openUrl(QUrl("https://github.com/new5Fpointer/Traynex"));
 		});
-	connect(checkUpdateButton, &QPushButton::clicked, this, &MainWindow::showAbout);
 }
 
 void MainWindow::setupConnections()
