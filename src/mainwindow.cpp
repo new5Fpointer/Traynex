@@ -142,6 +142,7 @@ void MainWindow::setupUI()
 	}
 	
 	windowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
+	windowsTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu); // 启用表头右键菜单
 
 	// 表格属性
 	windowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -226,6 +227,7 @@ void MainWindow::setupUI()
 	}
 	
 	hiddenWindowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
+	hiddenWindowsTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu); // 启用表头右键菜单
 
 	// 表格属性
 	hiddenWindowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
