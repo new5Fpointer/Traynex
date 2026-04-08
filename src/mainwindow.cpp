@@ -995,6 +995,9 @@ void MainWindow::toggleColumnVisibility(int column)
 	
 	// 切换隐藏窗口表格列的显示/隐藏
 	hiddenWindowsTable->setColumnHidden(column, !isHidden);
+	
+	// 更新最后一列的拉伸模式
+	updateLastColumnStretchMode();
 }
 
 void MainWindow::resetTableColumnWidths(QTableWidget* table)
@@ -1017,6 +1020,45 @@ void MainWindow::resetTableColumnWidths(QTableWidget* table)
 	table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
 	table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
 	table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);    // 程序路径列拉伸
+	
+	// 更新拉伸模式
+	updateLastColumnStretchMode();
+}
+
+void MainWindow::updateLastColumnStretchMode()
+{
+	// 查找最后一个可见列
+	int lastVisibleColumn = -1;
+	for (int i = windowsTable->columnCount() - 1; i >= 0; --i) {
+		if (!windowsTable->isColumnHidden(i)) {
+			lastVisibleColumn = i;
+			break;
+		}
+	}
+	
+	if (lastVisibleColumn >= 0) {
+		// 重置所有列的拉伸模式
+		for (int i = 0; i < windowsTable->columnCount(); ++i) {
+			if (i == 0) {
+				windowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed); // 图标列固定
+			} else if (i == lastVisibleColumn) {
+				windowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch); // 最后一列拉伸
+			} else {
+				windowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Interactive);
+			}
+		}
+		
+		// 对隐藏窗口表格应用相同的设置
+		for (int i = 0; i < hiddenWindowsTable->columnCount(); ++i) {
+			if (i == 0) {
+				hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed); // 图标列固定
+			} else if (i == lastVisibleColumn) {
+				hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch); // 最后一列拉伸
+			} else {
+				hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Interactive);
+			}
+		}
+	}
 }
 
 void MainWindow::onTableContextMenu(const QPoint& pos)

@@ -80,6 +80,7 @@ private slots:
 	void onHiddenTableHeaderContextMenu(const QPoint& pos);
 	void toggleColumnVisibility(int column);
 	void resetTableColumnWidths(QTableWidget* table);
+	void updateLastColumnStretchMode();
 
 protected:
 	void closeEvent(QCloseEvent* event) override;
