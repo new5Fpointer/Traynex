@@ -1580,6 +1580,17 @@ void MainWindow::retranslateUI()
 		restoreAllHiddenAction->setText(trc("MainWindow", "Restore All Windows"));
 	}
 
+	// 表头右键菜单
+	if (headerContextMenu) {
+		showIconColumnAction->setText(trc("MainWindow", "Icon Column"));
+		showTitleColumnAction->setText(trc("MainWindow", "Window Title"));
+		showHandleColumnAction->setText(trc("MainWindow", "Handle"));
+		showClassColumnAction->setText(trc("MainWindow", "Class"));
+		showPidColumnAction->setText(trc("MainWindow", "Process ID"));
+		showProcessColumnAction->setText(trc("MainWindow", "Process"));
+		resetColumnWidthsAction->setText(trc("MainWindow", "Reset Column Widths"));
+	}
+
 	// 更新关于文本
 	showAbout();
 

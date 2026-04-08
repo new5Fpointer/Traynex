@@ -176,3 +176,7 @@ Confirm Reset=Confirm Reset
 Are you sure you want to reset all settings to default?=Are you sure you want to reset all settings to default?
 Reset Complete=Reset Complete
 All settings have been restored to default.=All settings have been restored to default.
+
+; === Table Header Context Menu ===
+Icon Column=Icon Column
+Reset Column Widths=Reset Column Widths
