@@ -1188,6 +1188,14 @@ void MainWindow::refreshWindowsTable()
 		trc("MainWindow", "Program Path")
 		});
 
+	// 设置列提示
+	for (int i = 0; i < windowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = windowsTable->horizontalHeaderItem(i);
+		if (headerItem && !headerItem->text().isEmpty()) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
+
 	for (const auto& window : currentWindowsInfo) {
 		int row = windowsTable->rowCount();
 		windowsTable->insertRow(row);
@@ -1563,6 +1571,21 @@ void MainWindow::retranslateUI()
 		trc("MainWindow", "Process"),
 		trc("MainWindow", "Program Path")
 		});
+
+	// 更新表格列提示
+	for (int i = 0; i < windowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = windowsTable->horizontalHeaderItem(i);
+		if (headerItem && !headerItem->text().isEmpty()) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
+	
+	for (int i = 0; i < hiddenWindowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = hiddenWindowsTable->horizontalHeaderItem(i);
+		if (headerItem && !headerItem->text().isEmpty()) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
 
 	// 标签页标题
 	tabWidget->setTabText(0, trc("MainWindow", "Main"));
