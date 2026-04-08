@@ -169,7 +169,7 @@ void MainWindow::setupUI()
 	windowsTable->setColumnWidth(3, 120); // 窗口类
 	windowsTable->setColumnWidth(4, 80);  // 进程ID
 	windowsTable->setColumnWidth(5, 200); // 进程名
-	windowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
+	windowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);    // 程序路径列拉伸
 	windowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);      // 图标列固定宽度
 	windowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
@@ -260,7 +260,7 @@ void MainWindow::setupUI()
 	hiddenWindowsTable->setColumnWidth(3, 120); // 窗口类
 	hiddenWindowsTable->setColumnWidth(4, 80);  // 进程ID
 	hiddenWindowsTable->setColumnWidth(5, 200); // 进程名
-	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
+	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);    // 程序路径列拉伸
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);      // 图标列固定宽度
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
@@ -1009,8 +1009,14 @@ void MainWindow::resetTableColumnWidths(QTableWidget* table)
 	table->setColumnWidth(4, 80);   // 进程ID
 	table->setColumnWidth(5, 200);  // 进程名
 	
-	// 程序路径列保持拉伸
-	table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);
+	// 设置列宽模式
+	table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);      // 图标列固定
+	table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);    // 程序路径列拉伸
 }
 
 void MainWindow::onTableContextMenu(const QPoint& pos)
