@@ -918,6 +918,7 @@ void MainWindow::createHeaderContextMenu()
 	showProgramPathColumnAction->setCheckable(true);
 
 	// 默认所有列都显示（程序路径列默认隐藏）
+	// 图标列和窗口标题列不可被取消
 	showIconColumnAction->setChecked(true);
 	showTitleColumnAction->setChecked(true);
 	showHandleColumnAction->setChecked(true);
@@ -983,6 +984,11 @@ void MainWindow::onHiddenTableHeaderContextMenu(const QPoint& pos)
 
 void MainWindow::toggleColumnVisibility(int column)
 {
+	// 禁止隐藏图标列(0)和窗口标题列(1)
+	if (column == 0 || column == 1) {
+		return;
+	}
+	
 	// 切换主表格列的显示/隐藏
 	bool isHidden = windowsTable->isColumnHidden(column);
 	windowsTable->setColumnHidden(column, !isHidden);
