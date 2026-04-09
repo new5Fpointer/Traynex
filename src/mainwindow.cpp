@@ -899,8 +899,6 @@ void MainWindow::createHeaderContextMenu()
 	headerContextMenu = new QMenu(this);
 
 	// 创建列显示/隐藏动作
-	showIconColumnAction = new QAction(trc("MainWindow", "Icon Column"), this);
-	showTitleColumnAction = new QAction(trc("MainWindow", "Window Title"), this);
 	showHandleColumnAction = new QAction(trc("MainWindow", "Handle"), this);
 	showClassColumnAction = new QAction(trc("MainWindow", "Class"), this);
 	showPidColumnAction = new QAction(trc("MainWindow", "Process ID"), this);
@@ -909,8 +907,6 @@ void MainWindow::createHeaderContextMenu()
 	resetColumnWidthsAction = new QAction(trc("MainWindow", "Reset Column Widths"), this);
 
 	// 设置所有动作为可勾选
-	showIconColumnAction->setCheckable(true);
-	showTitleColumnAction->setCheckable(true);
 	showHandleColumnAction->setCheckable(true);
 	showClassColumnAction->setCheckable(true);
 	showPidColumnAction->setCheckable(true);
@@ -918,9 +914,6 @@ void MainWindow::createHeaderContextMenu()
 	showProgramPathColumnAction->setCheckable(true);
 
 	// 默认所有列都显示（程序路径列默认隐藏）
-	// 图标列和窗口标题列不可被取消
-	showIconColumnAction->setChecked(true);
-	showTitleColumnAction->setChecked(true);
 	showHandleColumnAction->setChecked(true);
 	showClassColumnAction->setChecked(true);
 	showPidColumnAction->setChecked(true);
@@ -928,8 +921,6 @@ void MainWindow::createHeaderContextMenu()
 	showProgramPathColumnAction->setChecked(false);
 
 	// 连接信号
-	connect(showIconColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(0); });
-	connect(showTitleColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(1); });
 	connect(showHandleColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(2); });
 	connect(showClassColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(3); });
 	connect(showPidColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(4); });
@@ -941,8 +932,6 @@ void MainWindow::createHeaderContextMenu()
 	});
 
 	// 添加动作到菜单
-	headerContextMenu->addAction(showIconColumnAction);
-	headerContextMenu->addAction(showTitleColumnAction);
 	headerContextMenu->addAction(showHandleColumnAction);
 	headerContextMenu->addAction(showClassColumnAction);
 	headerContextMenu->addAction(showPidColumnAction);
@@ -955,8 +944,6 @@ void MainWindow::createHeaderContextMenu()
 void MainWindow::onTableHeaderContextMenu(const QPoint& pos)
 {
 	// 更新菜单项状态
-	showIconColumnAction->setChecked(!windowsTable->isColumnHidden(0));
-	showTitleColumnAction->setChecked(!windowsTable->isColumnHidden(1));
 	showHandleColumnAction->setChecked(!windowsTable->isColumnHidden(2));
 	showClassColumnAction->setChecked(!windowsTable->isColumnHidden(3));
 	showPidColumnAction->setChecked(!windowsTable->isColumnHidden(4));
@@ -970,8 +957,6 @@ void MainWindow::onTableHeaderContextMenu(const QPoint& pos)
 void MainWindow::onHiddenTableHeaderContextMenu(const QPoint& pos)
 {
 	// 更新菜单项状态
-	showIconColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(0));
-	showTitleColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(1));
 	showHandleColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(2));
 	showClassColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(3));
 	showPidColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(4));
@@ -1687,8 +1672,6 @@ void MainWindow::retranslateUI()
 
 	// 表头右键菜单
 	if (headerContextMenu) {
-		showIconColumnAction->setText(trc("MainWindow", "Icon Column"));
-		showTitleColumnAction->setText(trc("MainWindow", "Window Title"));
 		showHandleColumnAction->setText(trc("MainWindow", "Handle"));
 		showClassColumnAction->setText(trc("MainWindow", "Class"));
 		showPidColumnAction->setText(trc("MainWindow", "Process ID"));

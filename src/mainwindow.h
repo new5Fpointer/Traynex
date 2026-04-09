@@ -189,10 +189,8 @@ private:
 	QAction* restoreLastHiddenAction;
 	QAction* restoreAllHiddenAction;
 
-	// 表头右键菜单
+	// 表头右键菜单（图标列和窗口标题列已从菜单中移除）
 	QMenu* headerContextMenu;
-	QAction* showIconColumnAction;
-	QAction* showTitleColumnAction;
 	QAction* showHandleColumnAction;
 	QAction* showClassColumnAction;
 	QAction* showPidColumnAction;
