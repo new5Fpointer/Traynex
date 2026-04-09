@@ -665,6 +665,9 @@ void MainWindow::closeEvent(QCloseEvent* event)
 		}
 	}
 	else {
+		// 保存表格列显示状态
+		saveColumnVisibilitySettings();
+		
 		WindowsTrayManager::instance().shutdown();
 		if (refreshTimer) {
 			refreshTimer->stop();
@@ -986,6 +989,9 @@ void MainWindow::toggleColumnVisibility(int column)
 	
 	// 更新最后一列的拉伸模式
 	updateLastColumnStretchMode();
+	
+	// 保存列显示状态到配置文件
+	saveColumnVisibilitySettings();
 }
 
 void MainWindow::resetTableColumnWidths(QTableWidget* table)
@@ -2836,11 +2842,11 @@ void MainWindow::createDefaultConfig()
 	settings.setValue("refresh/interval", 500);
 
 	// 表格列显示状态（列0和列1始终显示）
-	settings.setValue("table/column_2_visible", true);  // 句柄列
-	settings.setValue("table/column_3_visible", true);  // 类列
-	settings.setValue("table/column_4_visible", true);  // 进程ID列
-	settings.setValue("table/column_5_visible", true);  // 进程列
-	settings.setValue("table/column_6_visible", false); // 程序路径列默认隐藏
+	settings.setValue("table/column_handle_visible", true);  // 句柄列
+	settings.setValue("table/column_class_visible", true);  // 类列
+	settings.setValue("table/column_pid_visible", true);  // 进程ID列
+	settings.setValue("table/column_process_visible", true);  // 进程列
+	settings.setValue("table/column_program_path_visible", false); // 程序路径列默认隐藏
 
 	settings.sync();
 }
@@ -2850,11 +2856,11 @@ void MainWindow::saveColumnVisibilitySettings()
 	QSettings settings(getConfigPath(), QSettings::IniFormat);
 	
 	// 保存列显示状态（列0和列1始终显示，不保存）
-	settings.setValue("table/column_2_visible", !windowsTable->isColumnHidden(2)); // 句柄列
-	settings.setValue("table/column_3_visible", !windowsTable->isColumnHidden(3)); // 类列
-	settings.setValue("table/column_4_visible", !windowsTable->isColumnHidden(4)); // 进程ID列
-	settings.setValue("table/column_5_visible", !windowsTable->isColumnHidden(5)); // 进程列
-	settings.setValue("table/column_6_visible", !windowsTable->isColumnHidden(6)); // 程序路径列
+	settings.setValue("table/column_handle_visible", !windowsTable->isColumnHidden(2)); // 句柄列
+	settings.setValue("table/column_class_visible", !windowsTable->isColumnHidden(3)); // 类列
+	settings.setValue("table/column_pid_visible", !windowsTable->isColumnHidden(4)); // 进程ID列
+	settings.setValue("table/column_process_visible", !windowsTable->isColumnHidden(5)); // 进程列
+	settings.setValue("table/column_program_path_visible", !windowsTable->isColumnHidden(6)); // 程序路径列
 	
 	settings.sync();
 }
@@ -2864,36 +2870,36 @@ void MainWindow::loadColumnVisibilitySettings()
 	QSettings settings(getConfigPath(), QSettings::IniFormat);
 	
 	// 加载列显示状态（列0和列1始终显示）
-	bool column2Visible = settings.value("table/column_2_visible", true).toBool(); // 句柄列
-	bool column3Visible = settings.value("table/column_3_visible", true).toBool(); // 类列
-	bool column4Visible = settings.value("table/column_4_visible", true).toBool(); // 进程ID列
-	bool column5Visible = settings.value("table/column_5_visible", true).toBool(); // 进程列
-	bool column6Visible = settings.value("table/column_6_visible", false).toBool(); // 程序路径列默认隐藏
+	bool columnHandleVisible = settings.value("table/column_handle_visible", true).toBool(); // 句柄列
+	bool columnClassVisible = settings.value("table/column_class_visible", true).toBool(); // 类列
+	bool columnPidVisible = settings.value("table/column_pid_visible", true).toBool(); // 进程ID列
+	bool columnProcessVisible = settings.value("table/column_process_visible", true).toBool(); // 进程列
+	bool columnProgramPathVisible = settings.value("table/column_program_path_visible", false).toBool(); // 程序路径列默认隐藏
 	
 	// 应用列显示状态到两个表格
-	windowsTable->setColumnHidden(2, !column2Visible);
-	windowsTable->setColumnHidden(3, !column3Visible);
-	windowsTable->setColumnHidden(4, !column4Visible);
-	windowsTable->setColumnHidden(5, !column5Visible);
-	windowsTable->setColumnHidden(6, !column6Visible);
+	windowsTable->setColumnHidden(2, !columnHandleVisible);
+	windowsTable->setColumnHidden(3, !columnClassVisible);
+	windowsTable->setColumnHidden(4, !columnPidVisible);
+	windowsTable->setColumnHidden(5, !columnProcessVisible);
+	windowsTable->setColumnHidden(6, !columnProgramPathVisible);
 	
-	hiddenWindowsTable->setColumnHidden(2, !column2Visible);
-	hiddenWindowsTable->setColumnHidden(3, !column3Visible);
-	hiddenWindowsTable->setColumnHidden(4, !column4Visible);
-	hiddenWindowsTable->setColumnHidden(5, !column5Visible);
-	hiddenWindowsTable->setColumnHidden(6, !column6Visible);
+	hiddenWindowsTable->setColumnHidden(2, !columnHandleVisible);
+	hiddenWindowsTable->setColumnHidden(3, !columnClassVisible);
+	hiddenWindowsTable->setColumnHidden(4, !columnPidVisible);
+	hiddenWindowsTable->setColumnHidden(5, !columnProcessVisible);
+	hiddenWindowsTable->setColumnHidden(6, !columnProgramPathVisible);
 	
 	// 更新菜单项状态
-	if (showHandleColumnAction) showHandleColumnAction->setChecked(column2Visible);
-	if (showClassColumnAction) showClassColumnAction->setChecked(column3Visible);
-	if (showPidColumnAction) showPidColumnAction->setChecked(column4Visible);
-	if (showProcessColumnAction) showProcessColumnAction->setChecked(column5Visible);
-	if (showProgramPathColumnAction) showProgramPathColumnAction->setChecked(column6Visible);
+	if (showHandleColumnAction) showHandleColumnAction->setChecked(columnHandleVisible);
+	if (showClassColumnAction) showClassColumnAction->setChecked(columnClassVisible);
+	if (showPidColumnAction) showPidColumnAction->setChecked(columnPidVisible);
+	if (showProcessColumnAction) showProcessColumnAction->setChecked(columnProcessVisible);
+	if (showProgramPathColumnAction) showProgramPathColumnAction->setChecked(columnProgramPathVisible);
 	
 	// 更新拉伸模式
 	updateLastColumnStretchMode();
 	
-	// 保存列显示状态到配置文件
+	// 保存列显示状态到配置文件（使用新键名）
 	saveColumnVisibilitySettings();
 }
 
