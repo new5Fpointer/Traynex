@@ -121,6 +121,8 @@ private:
 	void toggleMuteWindow();
 
 	void createDefaultConfig();
+	void saveColumnVisibilitySettings();
+	void loadColumnVisibilitySettings();
 
 	void initializeHotkeyTable();
 	bool isHotkeyAvailable(const QKeySequence& keySequence);
