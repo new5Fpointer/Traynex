@@ -184,6 +184,9 @@ bool WindowsTrayManager::minimizeWindowToTray(HWND hwnd)
     wcscpy_s(nid.szTip, windowTitle);
 
     bool success = Shell_NotifyIcon(NIM_ADD, &nid);
+    wchar_t buf[256];
+    swprintf(buf, L"Created icon: uID = %d, hwnd = 0x%p\n", nid.uID, hwnd);
+    OutputDebugString(buf);
     if (!success) {
         return false;
     }
@@ -281,12 +284,18 @@ LRESULT CALLBACK WindowsTrayManager::windowProc(HWND hwnd, UINT uMsg, WPARAM wPa
     }
 
     switch (uMsg) {
-        case WM_TRAYICON:
-            if (lParam == WM_LBUTTONDBLCLK) {
-                // 双击恢复窗口
-                manager->showWindowFromTray(static_cast<UINT>(wParam));
+        case WM_TRAYICON: {
+            UINT mouseMsg = LOWORD(lParam);
+            UINT iconId = HIWORD(lParam);
+            if (mouseMsg == WM_LBUTTONDBLCLK) {
+                wchar_t buf[256];
+                swprintf(buf, L"Double click: iconId = 0x%p\n", hwnd);
+                OutputDebugString(buf);
+
+                manager->showWindowFromTray(iconId);
             }
             break;
+        }
 
         case WM_COMMAND:
             break;
