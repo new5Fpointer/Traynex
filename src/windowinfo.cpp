@@ -80,7 +80,6 @@ WindowInfo getWindowInfo(HWND hwnd, bool filterInvisibleChars)
 QList<QPair<HWND, WindowInfo>> getAllWindowsInfo()
 {
 	QList<QPair<HWND, WindowInfo>> windows;
-	DWORD currentProcessId = GetCurrentProcessId();
 	
 	// 获取所有隐藏窗口
 	auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
