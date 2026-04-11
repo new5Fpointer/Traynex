@@ -1682,12 +1682,14 @@ void MainWindow::refreshHiddenWindowsTable()
 
 	// 获取系统托盘隐藏的窗口
 	auto systemHiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+	qDebug() << "System tray hidden windows count:" << systemHiddenWindows.size();
 
 	// 获取应用托盘菜单隐藏的窗口
 	auto appTrayHiddenWindows = m_appTrayWindows;
+	qDebug() << "App tray hidden windows count:" << appTrayHiddenWindows.size();
 
 	// 合并两种隐藏窗口
-	QMap<HWND, std::tuple<QString, QString, QString, DWORD, QIcon>> allHiddenWindows;
+	QMap<HWND, std::tuple<QString, QString, QString, DWORD, QIcon, QString>> allHiddenWindows;
 
 	// 添加系统托盘隐藏窗口
 	for (const auto& window : systemHiddenWindows) {
@@ -1701,7 +1703,8 @@ void MainWindow::refreshHiddenWindowsTable()
 				info.processName,
 				info.className,
 				info.processId,
-				info.icon
+				info.icon,
+				info.processPath
 			);
 		}
 	}
@@ -1714,7 +1717,7 @@ void MainWindow::refreshHiddenWindowsTable()
 				// 使用getWindowInfo获取窗口信息
 		WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
 				
-				allHiddenWindows[hwnd] = std::make_tuple(info.title, info.processName, info.className, info.processId, info.icon);
+				allHiddenWindows[hwnd] = std::make_tuple(info.title, info.processName, info.className, info.processId, info.icon, info.processPath);
 			}
 		}
 	}
@@ -1722,7 +1725,7 @@ void MainWindow::refreshHiddenWindowsTable()
 	// 显示所有隐藏窗口
 	for (auto it = allHiddenWindows.begin(); it != allHiddenWindows.end(); ++it) {
 		HWND hwnd = it.key();
-		auto [title, processName, className, processId, icon] = it.value();
+		auto [title, processName, className, processId, icon, processPath] = it.value();
 
 		int row = hiddenWindowsTable->rowCount();
 		hiddenWindowsTable->insertRow(row);
@@ -1756,12 +1759,17 @@ void MainWindow::refreshHiddenWindowsTable()
 		QTableWidgetItem* processItem = new QTableWidgetItem(processName);
 		processItem->setToolTip(processName);
 
+		// 程序路径
+		QTableWidgetItem* pathItem = new QTableWidgetItem(processPath);
+		pathItem->setToolTip(processPath);
+
 		hiddenWindowsTable->setItem(row, 0, iconItem);     // 图标
 		hiddenWindowsTable->setItem(row, 1, titleItem);    // 窗口标题
 		hiddenWindowsTable->setItem(row, 2, handleItem);   // 句柄
 		hiddenWindowsTable->setItem(row, 3, classItem);    // 类
 		hiddenWindowsTable->setItem(row, 4, pidItem);      // 进程ID
 		hiddenWindowsTable->setItem(row, 5, processItem);  // 进程名
+		hiddenWindowsTable->setItem(row, 6, pathItem);     // 程序路径
 	}
 
 	hiddenWindowsTable->setSortingEnabled(true);
