@@ -2171,30 +2171,38 @@ void MainWindow::restoreAllAppTrayWindows() {
 }
 
 void MainWindow::saveAppTrayWindows() {
-    QString savePath = QCoreApplication::applicationDirPath() + "/app_tray_save.dat";
+    QString savePath = QCoreApplication::applicationDirPath() + "/traymenu_save.dat";
     QFile file(savePath);
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&file);
         QList<HWND> appTrayWindows = m_appTrayWindows.keys();
+        qDebug() << "Saving app tray windows to:" << savePath << "Window count:" << appTrayWindows.size();
+        
         for (HWND hwnd : appTrayWindows) {
             if (hwnd && IsWindow(hwnd)) {
-                out << reinterpret_cast<qulonglong>(hwnd) << "\n";
+                qulonglong hwndValue = reinterpret_cast<qulonglong>(hwnd);
+                out << hwndValue << "\n";
+                qDebug() << "  - Saved window handle:" << QString::number(hwndValue, 16);
             }
         }
         file.close();
-        qDebug() << "App tray windows saved to:" << savePath << "Count:" << appTrayWindows.size();
+        qDebug() << "App tray windows saved successfully";
+    } else {
+        qDebug() << "Failed to open save file for writing:" << savePath;
     }
 }
 
 void MainWindow::restoreAppTrayWindows() {
-    QString savePath = QCoreApplication::applicationDirPath() + "/app_tray_save.dat";
+    QString savePath = QCoreApplication::applicationDirPath() + "/traymenu_save.dat";
     QFile file(savePath);
     if (!file.exists()) {
+        qDebug() << "App tray save file not found:" << savePath;
         return;
     }
     
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream in(&file);
+        int restoredCount = 0;
         while (!in.atEnd()) {
             QString line = in.readLine().trimmed();
             if (!line.isEmpty()) {
@@ -2202,31 +2210,54 @@ void MainWindow::restoreAppTrayWindows() {
                 qulonglong hwndValue = line.toULongLong(&ok);
                 if (ok) {
                     HWND hwnd = reinterpret_cast<HWND>(hwndValue);
-                    // 验证窗口是否仍然存在且可见
-                    if (hwnd && IsWindow(hwnd) && IsWindowVisible(hwnd)) {
-                        // 获取窗口信息
-                        WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
-                        // 隐藏窗口并添加到托盘菜单
-                        ShowWindow(hwnd, SW_HIDE);
-                        addWindowToTrayMenu(hwnd, info.title, info.icon);
-                        // 记录隐藏顺序
-                        m_hiddenWindowOrder.removeAll(hwnd);
-                        m_hiddenWindowOrder.prepend(hwnd);
+                    // 验证窗口是否仍然存在（不检查可见性，因为窗口可能被隐藏）
+                    if (hwnd && IsWindow(hwnd)) {
+                        // 检查是否已经在托盘菜单中（防止重复添加）
+                        if (m_appTrayWindows.contains(hwnd)) {
+                            qDebug() << "Window already in tray menu, skipping:" << QString::number(hwndValue, 16);
+                            continue;
+                        }
+                        
+                        // 检查窗口是否已经被隐藏（可能是其他程序隐藏的）
+                        if (IsWindowVisible(hwnd)) {
+                            // 获取窗口信息
+                            WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+                            // 隐藏窗口并添加到托盘菜单
+                            ShowWindow(hwnd, SW_HIDE);
+                            addWindowToTrayMenu(hwnd, info.title, info.icon);
+                            // 记录隐藏顺序
+                            m_hiddenWindowOrder.removeAll(hwnd);
+                            m_hiddenWindowOrder.prepend(hwnd);
+                            restoredCount++;
+                            qDebug() << "Restored window from app tray:" << info.title << "Handle:" << QString::number(hwndValue, 16);
+                        } else {
+                            // 窗口已经隐藏，直接添加到托盘菜单
+                            WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+                            addWindowToTrayMenu(hwnd, info.title, info.icon);
+                            m_hiddenWindowOrder.removeAll(hwnd);
+                            m_hiddenWindowOrder.prepend(hwnd);
+                            restoredCount++;
+                            qDebug() << "Window already hidden, added to tray menu:" << info.title << "Handle:" << QString::number(hwndValue, 16);
+                        }
+                    } else {
+                        qDebug() << "Window no longer exists, handle:" << QString::number(hwndValue, 16);
                     }
                 }
             }
         }
         file.close();
-        qDebug() << "App tray windows restored from:" << savePath;
+        qDebug() << "App tray windows restored from:" << savePath << "Count:" << restoredCount;
         
         // 刷新显示
         refreshAllLists();
         updateTrayMenu();
+    } else {
+        qDebug() << "Failed to open app tray save file:" << savePath;
     }
 }
 
 void MainWindow::cleanupAppTraySaveFile() {
-    QString savePath = QCoreApplication::applicationDirPath() + "/app_tray_save.dat";
+    QString savePath = QCoreApplication::applicationDirPath() + "/traymenu_save.dat";
     if (QFile::exists(savePath)) {
         QFile::remove(savePath);
         qDebug() << "App tray save file cleaned up:" << savePath;

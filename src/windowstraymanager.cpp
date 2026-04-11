@@ -222,14 +222,14 @@ void WindowsTrayManager::restoreAllWindows()
     m_hiddenWindows.clear();
 
     // 清理保存文件
-    DeleteFile(L"traymond_save.dat");
+    DeleteFile(L"trayicon_save.dat");
 
     emit trayWindowsChanged();
 }
 
 void WindowsTrayManager::saveHiddenWindows()
 {
-    std::wofstream file("traymond_save.dat");
+    std::wofstream file("trayicon_save.dat");
     if (file.is_open()) {
         for (const auto& hiddenWindow : m_hiddenWindows) {
             file << reinterpret_cast<uintptr_t>(hiddenWindow.hwnd) << std::endl;
@@ -240,7 +240,7 @@ void WindowsTrayManager::saveHiddenWindows()
 
 void WindowsTrayManager::restoreHiddenWindows()
 {
-    std::wifstream file("traymond_save.dat");
+    std::wifstream file("trayicon_save.dat");
     if (!file.is_open()) {
         return;
     }
