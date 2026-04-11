@@ -82,6 +82,13 @@ private slots:
 	void toggleColumnVisibility(int column);
 	void resetTableColumnWidths(QTableWidget* table);
 	void updateLastColumnStretchMode();
+	
+	// 表头拖动功能
+	void onTableColumnMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex);
+	void onHiddenTableColumnMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex);
+	void syncTableColumnOrder();
+	void saveColumnOrderSettings();
+	void loadColumnOrderSettings();
 
 protected:
 	void closeEvent(QCloseEvent* event) override;

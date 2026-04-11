@@ -145,6 +145,7 @@ void MainWindow::setupUI()
 	
 	windowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
 	windowsTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu); // 启用表头右键菜单
+	windowsTable->horizontalHeader()->setSectionsMovable(true); // 启用表头可拖动
 
 	// 表格属性
 	windowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -236,6 +237,7 @@ void MainWindow::setupUI()
 	
 	hiddenWindowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
 	hiddenWindowsTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu); // 启用表头右键菜单
+	hiddenWindowsTable->horizontalHeader()->setSectionsMovable(true); // 启用表头可拖动
 
 	// 表格属性
 	hiddenWindowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -530,6 +532,12 @@ void MainWindow::setupConnections()
 	connect(bindHotkeyButton, &QPushButton::clicked, this, &MainWindow::startBindHotkey);
 	connect(clearHotkeyButton, &QPushButton::clicked, this, &MainWindow::clearSelectedHotkey);
 	connect(hotkeyTable, &QTableWidget::itemDoubleClicked, this, &MainWindow::onHotkeyItemDoubleClicked);
+	
+	// 连接列移动信号，同步两个表格的列顺序
+	connect(windowsTable->horizontalHeader(), &QHeaderView::sectionMoved,
+		this, &MainWindow::onTableColumnMoved);
+	connect(hiddenWindowsTable->horizontalHeader(), &QHeaderView::sectionMoved,
+		this, &MainWindow::onHiddenTableColumnMoved);
 }
 
 void MainWindow::restoreSelectedWindow()
@@ -993,6 +1001,9 @@ void MainWindow::toggleColumnVisibility(int column)
 	
 	// 保存列显示状态到配置文件
 	saveColumnVisibilitySettings();
+	
+	// 确保列顺序正确
+	syncTableColumnOrder();
 }
 
 void MainWindow::resetTableColumnWidths(QTableWidget* table)
@@ -2540,11 +2551,17 @@ void MainWindow::saveColumnVisibilitySettings()
 	settings.setValue("table/column_program_path_visible", !windowsTable->isColumnHidden(6)); // 程序路径列
 	
 	settings.sync();
+	
+	// 保存列顺序
+	saveColumnOrderSettings();
 }
 
 void MainWindow::loadColumnVisibilitySettings()
 {
 	QSettings settings(getConfigPath(), QSettings::IniFormat);
+	
+	// 加载列顺序
+	loadColumnOrderSettings();
 	
 	// 加载列显示状态（列0和列1始终显示）
 	bool columnHandleVisible = settings.value("table/column_handle_visible", true).toBool(); // 句柄列
@@ -2853,4 +2870,102 @@ void MainWindow::copyAll()
 	mimeData->setHtml(html);
 	mimeData->setText(plainText);
 	QApplication::clipboard()->setMimeData(mimeData);
+}
+
+// 表头拖动功能实现
+void MainWindow::onTableColumnMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex)
+{
+	// 检查是否移动了图标列（第0列）
+	if (logicalIndex == 0) {
+		// 禁止移动图标列，将其移回原位置
+		windowsTable->horizontalHeader()->moveSection(newVisualIndex, oldVisualIndex);
+		return;
+	}
+	
+	// 同步隐藏窗口表格的列顺序
+	syncTableColumnOrder();
+	
+	// 保存列顺序设置
+	saveColumnOrderSettings();
+}
+
+void MainWindow::onHiddenTableColumnMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex)
+{
+	// 检查是否移动了图标列（第0列）
+	if (logicalIndex == 0) {
+		// 禁止移动图标列，将其移回原位置
+		hiddenWindowsTable->horizontalHeader()->moveSection(newVisualIndex, oldVisualIndex);
+		return;
+	}
+	
+	// 同步主窗口表格的列顺序
+	syncTableColumnOrder();
+	
+	// 保存列顺序设置
+	saveColumnOrderSettings();
+}
+
+void MainWindow::syncTableColumnOrder()
+{
+	// 获取主表格的列顺序
+	QHeaderView* sourceHeader = windowsTable->horizontalHeader();
+	QHeaderView* targetHeader = hiddenWindowsTable->horizontalHeader();
+	
+	// 同步列顺序，但确保图标列（逻辑索引0）保持在位置0
+	for (int i = 0; i < sourceHeader->count(); ++i) {
+		int logicalIndex = sourceHeader->logicalIndex(i);
+		
+		// 如果是图标列，确保它在位置0
+		if (logicalIndex == 0 && i != 0) {
+			// 将图标列移动到位置0
+			sourceHeader->moveSection(i, 0);
+			targetHeader->moveSection(targetHeader->visualIndex(logicalIndex), 0);
+			break;
+		}
+		
+		targetHeader->moveSection(targetHeader->visualIndex(logicalIndex), i);
+	}
+}
+
+void MainWindow::saveColumnOrderSettings()
+{
+	QSettings settings(getConfigPath(), QSettings::IniFormat);
+	
+	// 保存列顺序
+	QHeaderView* header = windowsTable->horizontalHeader();
+	QStringList columnOrder;
+	for (int i = 0; i < header->count(); ++i) {
+		columnOrder.append(QString::number(header->logicalIndex(i)));
+	}
+	
+	settings.setValue("table/column_order", columnOrder.join(","));
+	settings.sync();
+}
+
+void MainWindow::loadColumnOrderSettings()
+{
+	QSettings settings(getConfigPath(), QSettings::IniFormat);
+	
+	// 加载列顺序
+	QString columnOrderStr = settings.value("table/column_order", "").toString();
+	if (!columnOrderStr.isEmpty()) {
+		QStringList columnOrder = columnOrderStr.split(",");
+		if (columnOrder.size() == windowsTable->columnCount()) {
+			// 应用列顺序到两个表格
+			for (int visualIndex = 0; visualIndex < columnOrder.size(); ++visualIndex) {
+				int logicalIndex = columnOrder[visualIndex].toInt();
+				
+				// 移动列到指定位置
+				windowsTable->horizontalHeader()->moveSection(
+					windowsTable->horizontalHeader()->visualIndex(logicalIndex), 
+					visualIndex
+				);
+				
+				hiddenWindowsTable->horizontalHeader()->moveSection(
+					hiddenWindowsTable->horizontalHeader()->visualIndex(logicalIndex), 
+					visualIndex
+				);
+			}
+		}
+	}
 }
