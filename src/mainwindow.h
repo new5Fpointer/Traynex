@@ -118,7 +118,9 @@ private:
 	void saveHotkeySettings();
 	void loadHotkeySettings();
 
-	void finishHotkeySetting(const QString& keySequence);
+    void restoreAllAppTrayWindows();
+
+    void finishHotkeySetting(const QString& keySequence);
 	void cancelHotkeySetting();
 
 	void toggleMuteWindow();
@@ -129,6 +131,11 @@ private:
 
 	void initializeHotkeyTable();
 	bool isHotkeyAvailable(const QKeySequence& keySequence);
+	
+	// 应用托盘窗口持久化
+	void saveAppTrayWindows();
+	void restoreAppTrayWindows();
+	void cleanupAppTraySaveFile();
 
 	QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
 	QList<HWND> m_hiddenWindowOrder;
