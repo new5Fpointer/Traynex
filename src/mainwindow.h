@@ -20,6 +20,7 @@
 #include <QMap>
 #include <QLineEdit>
 #include <windows.h>
+#include "windowinfo.h"
 
 class MainWindow : public QMainWindow {
 	Q_OBJECT
@@ -102,11 +103,6 @@ private:
 
 	void updateWindowFlags();
 
-	void flashWindowInTaskbar(HWND hwnd);
-
-	bool isWindowOnTop(HWND hwnd);
-	void setWindowOnTop(HWND hwnd, bool onTop);
-
 	void addWindowToTrayMenu(HWND hwnd, const QString& title, const QIcon& icon = QIcon());
 	void removeWindowFromTrayMenu(HWND hwnd);
 	void updateTrayMenuLayout();
@@ -127,22 +123,6 @@ private:
 	void initializeHotkeyTable();
 	bool isHotkeyAvailable(const QKeySequence& keySequence);
 
-	QIcon getWindowIcon(HWND hwnd) const;
-
-	struct WindowInfo {
-		QString title;
-		QString originalTitle;  // 原始标题，不过滤字符
-		QString processName;
-		QString processPath;    // 完整进程路径
-		QString className;
-		DWORD processId;
-		HWND hwnd;
-		bool isHidden;
-		bool isVisible;
-		QIcon icon;
-	};
-	QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
-	WindowInfo getWindowInfo(HWND hwnd, bool filterInvisibleChars = true) const;
 	QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
 	QList<HWND> m_hiddenWindowOrder;
 	QMap<DWORD, bool> muteStates;
