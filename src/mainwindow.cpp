@@ -909,7 +909,8 @@ void MainWindow::createContextMenu()
 	copyMenu->addAction(copyTitleAction);
 	copyMenu->addAction(copyClassAction);
 	copyMenu->addAction(copyPathAction);
-	copyMenu->addAction(copyAllAction);
+    contextMenu->addSeparator();
+    copyMenu->addAction(copyAllAction);
 	contextMenu->addMenu(copyMenu);
 	
 	contextMenu->addSeparator();
