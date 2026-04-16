@@ -246,7 +246,7 @@ void setWindowOnTop(HWND hwnd, bool onTop)
 		0, 0, 0, 0,
 		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 	
-	qDebug() << "Window" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16)
+	qDebug() << "Window" << QString::number(reinterpret_cast<qulonglong>(hwnd), 10)
 		<< "set to" << (onTop ? "always on top" : "normal");
 }
 
@@ -258,7 +258,7 @@ void flashWindowInTaskbar(HWND hwnd)
 	
 	FlashWindow(hwnd, TRUE);
 	
-	qDebug() << "Window highlighted:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
+	qDebug() << "Window highlighted:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 10);
 }
 
 } // namespace WindowInfoUtils

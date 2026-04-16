@@ -1233,8 +1233,8 @@ void MainWindow::refreshWindowsTable()
 
 		// 窗口句柄
 		QTableWidgetItem* handleItem = new QTableWidgetItem(
-			QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
-		handleItem->setToolTip(QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
+			QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 10));
+		handleItem->setToolTip(QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 10));
 
 		// 窗口类名
 		QTableWidgetItem* classItem = new QTableWidgetItem(window.second.className);
@@ -1744,8 +1744,8 @@ void MainWindow::refreshHiddenWindowsTable()
 
 		// 窗口句柄
 		QTableWidgetItem* handleItem = new QTableWidgetItem(
-			QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
-		handleItem->setToolTip(QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
+			QString::number(reinterpret_cast<qulonglong>(hwnd), 10));
+		handleItem->setToolTip(QString::number(reinterpret_cast<qulonglong>(hwnd), 10));
 
 		// 窗口类名
 		QTableWidgetItem* classItem = new QTableWidgetItem(className);
@@ -1996,10 +1996,10 @@ void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIco
 	restoreAction->setData(windowData);
 
 	// 设置工具提示显示更详细的信息
-	QString toolTip = QString("%1\nProcess: %2\nHandle: 0x%3")
+	QString toolTip = QString("%1\nProcess: %2\nHandle: %3")
 		.arg(title)
 		.arg(processName)
-		.arg(QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
+		.arg(QString::number(reinterpret_cast<qulonglong>(hwnd), 10));
 	restoreAction->setToolTip(toolTip);
 
 	connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreWindowFromAppTray);
@@ -2160,7 +2160,7 @@ void MainWindow::restoreWindowFromAppTray()
 	saveAppTrayWindows();
 
 	qDebug() << "Window restored from app tray:" << title
-		<< "Handle:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
+		<< "Handle:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 10);
 }
 
 void MainWindow::restoreAllAppTrayWindows() {
@@ -2190,7 +2190,7 @@ void MainWindow::saveAppTrayWindows() {
             if (hwnd && IsWindow(hwnd)) {
                 qulonglong hwndValue = reinterpret_cast<qulonglong>(hwnd);
                 out << hwndValue << "\n";
-                qDebug() << "  - Saved window handle:" << QString::number(hwndValue, 16);
+                qDebug() << "  - Saved window handle:" << QString::number(hwndValue, 10);
             }
         }
         file.close();
@@ -2222,7 +2222,7 @@ void MainWindow::restoreAppTrayWindows() {
                     if (hwnd && IsWindow(hwnd)) {
                         // 检查是否已经在托盘菜单中（防止重复添加）
                         if (m_appTrayWindows.contains(hwnd)) {
-                            qDebug() << "Window already in tray menu, skipping:" << QString::number(hwndValue, 16);
+                            qDebug() << "Window already in tray menu, skipping:" << QString::number(hwndValue, 10);
                             continue;
                         }
                         
@@ -2237,7 +2237,7 @@ void MainWindow::restoreAppTrayWindows() {
                             m_hiddenWindowOrder.removeAll(hwnd);
                             m_hiddenWindowOrder.prepend(hwnd);
                             restoredCount++;
-                            qDebug() << "Restored window from app tray:" << info.title << "Handle:" << QString::number(hwndValue, 16);
+                            qDebug() << "Restored window from app tray:" << info.title << "Handle:" << QString::number(hwndValue, 10);
                         } else {
                             // 窗口已经隐藏，直接添加到托盘菜单
                             WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
@@ -2245,10 +2245,10 @@ void MainWindow::restoreAppTrayWindows() {
                             m_hiddenWindowOrder.removeAll(hwnd);
                             m_hiddenWindowOrder.prepend(hwnd);
                             restoredCount++;
-                            qDebug() << "Window already hidden, added to tray menu:" << info.title << "Handle:" << QString::number(hwndValue, 16);
+                            qDebug() << "Window already hidden, added to tray menu:" << info.title << "Handle:" << QString::number(hwndValue, 10);
                         }
                     } else {
-                        qDebug() << "Window no longer exists, handle:" << QString::number(hwndValue, 16);
+                        qDebug() << "Window no longer exists, handle:" << QString::number(hwndValue, 10);
                     }
                 }
             }
@@ -2963,7 +2963,7 @@ void MainWindow::copyAll()
 		"<tr><th>%1</th><th>%2</th><th>%3</th><th>%4</th><th>%5</th><th>%6</th></tr>"
 		"<tr>"
 		"<td>%7</td>"
-		"<td>0x%8</td>"
+		"<td>%8</td>"
 		"<td>%9</td>"
 		"<td>%10</td>"
 		"<td>%11</td>"
@@ -2977,18 +2977,18 @@ void MainWindow::copyAll()
 		.arg(trc("MainWindow", "Process").toHtmlEscaped())          // 5: 进程
 		.arg(trc("MainWindow", "Application Path").toHtmlEscaped()) // 6: 应用程序路径
 		.arg(info.originalTitle.toHtmlEscaped())                    // 7: 窗口标题值（原始标题）
-		.arg(QString::number((quintptr)hwnd, 16).toUpper())         // 8: 句柄值
+		.arg(QString::number((quintptr)hwnd, 10))                   // 8: 句柄值
 		.arg(info.className.toHtmlEscaped())                        // 9: 类值
 		.arg(info.processId)                                        // 10: 进程ID值
 		.arg(info.processName.toHtmlEscaped())                      // 11: 进程名值
 		.arg(info.processPath.toHtmlEscaped());                     // 12: 路径值
 	
 	// 创建纯文本格式（使用翻译后的标签）
-	QString plainText = QString("%1: %2\n%3: 0x%4\n%5: %6\n%7: %8\n%9: %10\n%11: %12")
+	QString plainText = QString("%1: %2\n%3: %4\n%5: %6\n%7: %8\n%9: %10\n%11: %12")
 		.arg(trc("MainWindow", "Window Title"))      // 1: 窗口标题
 		.arg(info.originalTitle)                     // 2: 窗口标题值（原始标题）
 		.arg(trc("MainWindow", "Handle"))            // 3: 句柄
-		.arg(QString::number((quintptr)hwnd, 16).toUpper()) // 4: 句柄值
+		.arg(QString::number((quintptr)hwnd, 10))            // 4: 句柄值
 		.arg(trc("MainWindow", "Class"))             // 5: 类
 		.arg(info.className)                         // 6: 类值
 		.arg(trc("MainWindow", "Process ID"))        // 7: 进程ID
