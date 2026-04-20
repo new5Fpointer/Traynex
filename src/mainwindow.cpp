@@ -904,6 +904,10 @@ void MainWindow::createContextMenu()
 	sliderAction->setDefaultWidget(sliderWidget);
 	opacityMenu->addAction(sliderAction);
 	
+	// 音量菜单 - 包含静音和音量调整功能
+	volumeMenu->addAction(muteAction);
+	volumeMenu->addSeparator();
+	
 	// 音量滑块菜单
 	auto* volumeSliderAction = new QWidgetAction(volumeMenu);
 	auto* volumeSliderWidget = new QWidget;
@@ -920,7 +924,6 @@ void MainWindow::createContextMenu()
 	contextMenu->addAction(bringToFrontAction);
 	contextMenu->addAction(highlightAction);
 	contextMenu->addAction(toggleOnTopAction);
-	contextMenu->addAction(muteAction);
 	contextMenu->addMenu(opacityMenu);
 	contextMenu->addMenu(volumeMenu);
 	contextMenu->addSeparator();
