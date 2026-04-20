@@ -2623,15 +2623,22 @@ void MainWindow::toggleMuteWindow()
 		} else {
 			// 取消静音：恢复之前的音量
 			float storedVolume = volumeStates.value(processId, 1.0f);
+			float restoreVolume = 1.0f; // 默认恢复100%
+			
 			if (storedVolume < 0) {
 				// 负数表示是静音前保存的音量
-				float restoreVolume = -storedVolume;
-				VolumeControl::SetProcessVolumeWithTimeout(processId, restoreVolume, 1000);
-				volumeSlider->setValue(static_cast<int>(restoreVolume * 100));
-				volumeLabel->setText(QString("%1%").arg(static_cast<int>(restoreVolume * 100)));
-				// 恢复正数存储
-				volumeStates[processId] = restoreVolume;
+				restoreVolume = -storedVolume;
+			} else if (storedVolume > 0) {
+				// 正数表示当前音量，直接使用
+				restoreVolume = storedVolume;
 			}
+			// 如果storedVolume == 0，restoreVolume保持1.0f
+			
+			VolumeControl::SetProcessVolumeWithTimeout(processId, restoreVolume, 1000);
+			volumeSlider->setValue(static_cast<int>(restoreVolume * 100));
+			volumeLabel->setText(QString("%1%").arg(static_cast<int>(restoreVolume * 100)));
+			// 存储为正数
+			volumeStates[processId] = restoreVolume;
 		}
 		
 		QMessageBox::information(this, trc("MainWindow", "Success"),
@@ -2659,19 +2666,31 @@ void MainWindow::onVolumeSliderChanged(int value)
 	bool success = VolumeControl::SetProcessVolumeWithTimeout(processId, volume, 1000);
 	
 	if (success) {
-		// 更新音量状态
-		volumeStates[processId] = volume;
-		
 		// 如果音量设为0，自动开启静音
 		if (volume == 0.0f) {
 			if (!muteStates.value(processId, false)) {
+				// 开启静音前保存当前音量（如果是正数）
+				float currentStoredVolume = volumeStates.value(processId, 1.0f);
+				if (currentStoredVolume > 0) {
+					// 保存为负值，表示静音前的音量
+					volumeStates[processId] = -currentStoredVolume;
+				} else {
+					volumeStates[processId] = 0.0f;
+				}
+				
 				// 开启静音
 				if (VolumeControl::SetProcessMuteWithTimeout(processId, true, 1000)) {
 					muteStates[processId] = true;
 					muteAction->setChecked(true);
 				}
+			} else {
+				// 已经是静音状态，更新存储
+				volumeStates[processId] = volume;
 			}
 		} else {
+			// 更新音量状态
+			volumeStates[processId] = volume;
+			
 			// 如果有音量，取消静音
 			if (muteStates.value(processId, false)) {
 				if (VolumeControl::SetProcessMuteWithTimeout(processId, false, 1000)) {
@@ -2697,6 +2716,10 @@ void MainWindow::adjustWindowVolume()
 	DWORD processId = info.processId;
 
 	float currentVolume = volumeStates.value(processId, 1.0f);
+	// 如果是负数，取绝对值（静音状态）
+	if (currentVolume < 0) {
+		currentVolume = -currentVolume;
+	}
 	volumeSlider->setValue(static_cast<int>(currentVolume * 100));
 	volumeLabel->setText(QString("%1%").arg(static_cast<int>(currentVolume * 100)));
 	
