@@ -1150,8 +1150,18 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 	
 	// 获取当前音量并设置滑块
 	float currentVolume = volumeStates.value(processId, 1.0f); // 默认100%
-	volumeSlider->setValue(static_cast<int>(currentVolume * 100));
-	volumeLabel->setText(QString("%1%").arg(static_cast<int>(currentVolume * 100)));
+	if (isMuted) {
+		// 如果静音，显示0%
+		volumeSlider->setValue(0);
+		volumeLabel->setText("0%");
+	} else {
+		// 如果没有静音，显示实际音量（如果是负数，取绝对值）
+		if (currentVolume < 0) {
+			currentVolume = -currentVolume;
+		}
+		volumeSlider->setValue(static_cast<int>(currentVolume * 100));
+		volumeLabel->setText(QString("%1%").arg(static_cast<int>(currentVolume * 100)));
+	}
 
 	// 根据窗口状态更新菜单项
 	bool isHidden = false;
@@ -2598,6 +2608,32 @@ void MainWindow::toggleMuteWindow()
 
 	if (success) {
 		muteStates[processId] = !current;
+		
+		if (!current) {
+			// 开启静音：保存当前音量并设为0
+			float currentVolume = volumeStates.value(processId, 1.0f);
+			// 临时存储静音前的音量，方便恢复
+			if (currentVolume > 0) {
+				// 将当前音量保存为负值，表示这是静音前的音量
+				volumeStates[processId] = -currentVolume;
+				VolumeControl::SetProcessVolumeWithTimeout(processId, 0.0f, 1000);
+				volumeSlider->setValue(0);
+				volumeLabel->setText("0%");
+			}
+		} else {
+			// 取消静音：恢复之前的音量
+			float storedVolume = volumeStates.value(processId, 1.0f);
+			if (storedVolume < 0) {
+				// 负数表示是静音前保存的音量
+				float restoreVolume = -storedVolume;
+				VolumeControl::SetProcessVolumeWithTimeout(processId, restoreVolume, 1000);
+				volumeSlider->setValue(static_cast<int>(restoreVolume * 100));
+				volumeLabel->setText(QString("%1%").arg(static_cast<int>(restoreVolume * 100)));
+				// 恢复正数存储
+				volumeStates[processId] = restoreVolume;
+			}
+		}
+		
 		QMessageBox::information(this, trc("MainWindow", "Success"),
 			trc("MainWindow", "Window %1.").arg(current ? "unmuted" : "muted"));
 	}
@@ -2623,7 +2659,27 @@ void MainWindow::onVolumeSliderChanged(int value)
 	bool success = VolumeControl::SetProcessVolumeWithTimeout(processId, volume, 1000);
 	
 	if (success) {
+		// 更新音量状态
 		volumeStates[processId] = volume;
+		
+		// 如果音量设为0，自动开启静音
+		if (volume == 0.0f) {
+			if (!muteStates.value(processId, false)) {
+				// 开启静音
+				if (VolumeControl::SetProcessMuteWithTimeout(processId, true, 1000)) {
+					muteStates[processId] = true;
+					muteAction->setChecked(true);
+				}
+			}
+		} else {
+			// 如果有音量，取消静音
+			if (muteStates.value(processId, false)) {
+				if (VolumeControl::SetProcessMuteWithTimeout(processId, false, 1000)) {
+					muteStates[processId] = false;
+					muteAction->setChecked(false);
+				}
+			}
+		}
 	}
 }
 
