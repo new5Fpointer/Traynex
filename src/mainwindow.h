@@ -124,6 +124,8 @@ private:
 	void cancelHotkeySetting();
 
 	void toggleMuteWindow();
+	void adjustWindowVolume();
+	void onVolumeSliderChanged(int value);
 
 	void createDefaultConfig();
 	void saveColumnVisibilitySettings();
@@ -140,6 +142,7 @@ private:
 	QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
 	QList<HWND> m_hiddenWindowOrder;
 	QMap<DWORD, bool> muteStates;
+	QMap<DWORD, float> volumeStates;
 
 	// 配置文件路径
 	QString getConfigPath() const;
@@ -171,10 +174,15 @@ private:
 	QAction* copyPathAction;
 	QAction* copyAllAction;
 
-	// 音量子控件
+	// 透明度和音量控件
 	QMenu* opacityMenu;
 	QSlider* opacitySlider;
 	QLabel* opacityLabel;
+	
+	// 音量调整菜单
+	QMenu* volumeMenu;
+	QSlider* volumeSlider;
+	QLabel* volumeLabel;
 
 	// 隐藏窗口页面组件
 	QTableWidget* hiddenWindowsTable;

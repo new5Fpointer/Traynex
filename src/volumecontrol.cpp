@@ -10,8 +10,8 @@
 QString VolumeControl::GetExeName(DWORD pid)
 {
     HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
-    if (!h) return {};
-    wchar_t path[MAX_PATH]{};
+    if (!h) return QString();
+    wchar_t path[MAX_PATH] = {0};
     DWORD len = MAX_PATH;
     QueryFullProcessImageNameW(h, 0, path, &len);
     CloseHandle(h);
@@ -102,4 +102,147 @@ bool VolumeControl::SetProcessMuteWithTimeout(DWORD processId, bool mute, int ti
     }
     if (worker.joinable()) worker.join();
     return result.load();
+}
+bool VolumeControl::SetProcessVolume(DWORD processId, float volume)
+{
+    if (volume < 0.0f || volume > 1.0f) {
+        return false;
+    }
+
+    CoInitialize(nullptr);
+    IMMDeviceEnumerator* deviceEnumerator = nullptr;
+    IMMDevice* device = nullptr;
+    IAudioSessionManager2* sessionManager = nullptr;
+    IAudioSessionEnumerator* sessionEnumerator = nullptr;
+    int sessionCount = 0;
+    bool anyVolumeSet = false;
+    QString targetExe = GetExeName(processId);
+
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+        __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
+    if (FAILED(hr)) goto cleanup;
+
+    hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+    if (FAILED(hr)) goto cleanup;
+
+    hr = device->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, nullptr, (void**)&sessionManager);
+    if (FAILED(hr)) goto cleanup;
+
+    hr = sessionManager->GetSessionEnumerator(&sessionEnumerator);
+    if (FAILED(hr)) goto cleanup;
+
+    hr = sessionEnumerator->GetCount(&sessionCount);
+    if (FAILED(hr)) goto cleanup;
+
+    if (targetExe.isEmpty()) goto cleanup;
+
+    for (int i = 0; i < sessionCount; ++i) {
+        IAudioSessionControl* control = nullptr;
+        IAudioSessionControl2* control2 = nullptr;
+        ISimpleAudioVolume* volumeCtrl = nullptr;
+
+        hr = sessionEnumerator->GetSession(i, &control);
+        if (FAILED(hr)) continue;
+
+        hr = control->QueryInterface(&control2);
+        if (SUCCEEDED(hr)) {
+            DWORD pid = 0;
+            control2->GetProcessId(&pid);
+            if (pid && GetExeName(pid) == targetExe) {
+                hr = control->QueryInterface(&volumeCtrl);
+                if (SUCCEEDED(hr)) {
+                    volumeCtrl->SetMasterVolume(volume, nullptr);
+                    volumeCtrl->Release();
+                    anyVolumeSet = true;
+                }
+            }
+            control2->Release();
+        }
+        control->Release();
+    }
+
+cleanup:
+    if (sessionEnumerator) sessionEnumerator->Release();
+    if (sessionManager) sessionManager->Release();
+    if (device) device->Release();
+    if (deviceEnumerator) deviceEnumerator->Release();
+    CoUninitialize();
+    return anyVolumeSet;
+}
+
+bool VolumeControl::SetProcessVolumeWithTimeout(DWORD processId, float volume, int timeoutMs)
+{
+    // 简化实现，暂时不使用线程
+    return SetProcessVolume(processId, volume);
+}
+
+float VolumeControl::GetProcessVolume(DWORD processId)
+{
+    float currentVolume = 0.0f;
+    CoInitialize(nullptr);
+    IMMDeviceEnumerator* deviceEnumerator = nullptr;
+    IMMDevice* device = nullptr;
+    IAudioSessionManager2* sessionManager = nullptr;
+    IAudioSessionEnumerator* sessionEnumerator = nullptr;
+    int sessionCount = 0;
+    bool volumeFound = false;
+    QString targetExe = GetExeName(processId);
+
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+        __uuidof(IMMDeviceEnumerator), (void**)&deviceEnumerator);
+    if (FAILED(hr)) goto cleanup;
+
+    hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
+    if (FAILED(hr)) goto cleanup;
+
+    hr = device->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, nullptr, (void**)&sessionManager);
+    if (FAILED(hr)) goto cleanup;
+
+    hr = sessionManager->GetSessionEnumerator(&sessionEnumerator);
+    if (FAILED(hr)) goto cleanup;
+
+    hr = sessionEnumerator->GetCount(&sessionCount);
+    if (FAILED(hr)) goto cleanup;
+
+    if (targetExe.isEmpty()) goto cleanup;
+
+    for (int i = 0; i < sessionCount; ++i) {
+        IAudioSessionControl* control = nullptr;
+        IAudioSessionControl2* control2 = nullptr;
+        ISimpleAudioVolume* volumeCtrl = nullptr;
+
+        hr = sessionEnumerator->GetSession(i, &control);
+        if (FAILED(hr)) continue;
+
+        hr = control->QueryInterface(&control2);
+        if (SUCCEEDED(hr)) {
+            DWORD pid = 0;
+            control2->GetProcessId(&pid);
+            if (pid && GetExeName(pid) == targetExe) {
+                hr = control->QueryInterface(&volumeCtrl);
+                if (SUCCEEDED(hr)) {
+                    volumeCtrl->GetMasterVolume(&currentVolume);
+                    volumeCtrl->Release();
+                    volumeFound = true;
+                    break; // 只获取第一个会话的音量
+                }
+            }
+            control2->Release();
+        }
+        control->Release();
+    }
+
+cleanup:
+    if (sessionEnumerator) sessionEnumerator->Release();
+    if (sessionManager) sessionManager->Release();
+    if (device) device->Release();
+    if (deviceEnumerator) deviceEnumerator->Release();
+    CoUninitialize();
+    return volumeFound ? currentVolume : -1.0f;
+}
+
+float VolumeControl::GetProcessVolumeWithTimeout(DWORD processId, int timeoutMs)
+{
+    // 简化实现，暂时不使用线程
+    return GetProcessVolume(processId);
 }

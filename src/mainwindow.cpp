@@ -851,6 +851,10 @@ void MainWindow::createContextMenu()
 	opacityMenu = new QMenu(trc("MainWindow", "Opacity"), contextMenu);
 	opacitySlider = new QSlider(Qt::Horizontal);
 	opacityLabel = new QLabel;
+	
+	volumeMenu = new QMenu(trc("MainWindow", "Volume"), contextMenu);
+	volumeSlider = new QSlider(Qt::Horizontal);
+	volumeLabel = new QLabel;
 	openFolderAction = new QAction(trc("MainWindow", "Open File Location"), this);
 	filePropsAction = new QAction(trc("MainWindow", "File Properties"), this);
 	endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
@@ -868,6 +872,10 @@ void MainWindow::createContextMenu()
 	opacitySlider->setRange(10, 100);
 	opacitySlider->setValue(20);
 	opacityLabel->setText("100%");
+	
+	volumeSlider->setRange(0, 100);
+	volumeSlider->setValue(100);
+	volumeLabel->setText("100%");
 
 	connect(hideToTrayAction, &QAction::triggered, this, &MainWindow::hideSelectedToTray);
 	connect(hideToAppTrayAction, &QAction::triggered, this, &MainWindow::hideToAppTray);
@@ -876,6 +884,7 @@ void MainWindow::createContextMenu()
 	connect(toggleOnTopAction, &QAction::triggered, this, &MainWindow::toggleWindowOnTop);
 	connect(muteAction, &QAction::triggered, this, &MainWindow::toggleMuteWindow);
 	connect(opacitySlider, &QSlider::valueChanged, this, &MainWindow::onOpacitySliderChanged);
+	connect(volumeSlider, &QSlider::valueChanged, this, &MainWindow::onVolumeSliderChanged);
 	connect(openFolderAction, &QAction::triggered, this, &MainWindow::openFileLocation);
 	connect(filePropsAction, &QAction::triggered, this, &MainWindow::showFileProperties);
 	connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
@@ -894,6 +903,16 @@ void MainWindow::createContextMenu()
 	hLay->setContentsMargins(6, 2, 6, 2);
 	sliderAction->setDefaultWidget(sliderWidget);
 	opacityMenu->addAction(sliderAction);
+	
+	// 音量滑块菜单
+	auto* volumeSliderAction = new QWidgetAction(volumeMenu);
+	auto* volumeSliderWidget = new QWidget;
+	auto* volumeHLayout = new QHBoxLayout(volumeSliderWidget);
+	volumeHLayout->addWidget(volumeSlider, 1);
+	volumeHLayout->addWidget(volumeLabel);
+	volumeHLayout->setContentsMargins(6, 2, 6, 2);
+	volumeSliderAction->setDefaultWidget(volumeSliderWidget);
+	volumeMenu->addAction(volumeSliderAction);
 
 	contextMenu->addAction(hideToTrayAction);
 	contextMenu->addAction(hideToAppTrayAction);
@@ -903,6 +922,7 @@ void MainWindow::createContextMenu()
 	contextMenu->addAction(toggleOnTopAction);
 	contextMenu->addAction(muteAction);
 	contextMenu->addMenu(opacityMenu);
+	contextMenu->addMenu(volumeMenu);
 	contextMenu->addSeparator();
 	
 	// 添加复制菜单
@@ -1124,6 +1144,11 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 	GetWindowThreadProcessId(hwnd, &processId);
 	bool isMuted = muteStates.value(processId, false);
 	muteAction->setChecked(isMuted);
+	
+	// 获取当前音量并设置滑块
+	float currentVolume = volumeStates.value(processId, 1.0f); // 默认100%
+	volumeSlider->setValue(static_cast<int>(currentVolume * 100));
+	volumeLabel->setText(QString("%1%").arg(static_cast<int>(currentVolume * 100)));
 
 	// 根据窗口状态更新菜单项
 	bool isHidden = false;
@@ -1465,6 +1490,7 @@ void MainWindow::retranslateUI()
 		toggleOnTopAction->setText(trc("MainWindow", "Always on Top"));
 		muteAction->setText(trc("MainWindow", "Mute Process"));
 		opacityMenu->setTitle(trc("MainWindow", "Opacity"));
+		volumeMenu->setTitle(trc("MainWindow", "Volume"));
 		openFolderAction->setText(trc("MainWindow", "Open File Location"));
 		filePropsAction->setText(trc("MainWindow", "File Properties"));
 		endTaskAction->setText(trc("MainWindow", "End Task"));
@@ -2575,6 +2601,50 @@ void MainWindow::toggleMuteWindow()
 	else {
 		QMessageBox::warning(this, trc("MainWindow", "Error"),
 			trc("MainWindow", "Failed to mute/unmute process."));
+	}
+}
+
+void MainWindow::onVolumeSliderChanged(int value)
+{
+	HWND hwnd = getSelectedWindow();
+	if (!hwnd) return;
+
+	// 使用getWindowInfo获取进程ID
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+	DWORD processId = info.processId;
+
+	float volume = value / 100.0f;
+	volumeLabel->setText(QString("%1%").arg(value));
+
+	// 应用音量调整
+	bool success = VolumeControl::SetProcessVolumeWithTimeout(processId, volume, 1000);
+	
+	if (success) {
+		volumeStates[processId] = volume;
+	}
+}
+
+void MainWindow::adjustWindowVolume()
+{
+	HWND hwnd = getSelectedWindow();
+	if (!hwnd) {
+		QMessageBox::information(this, trc("MainWindow", "Information"),
+			trc("MainWindow", "Please select a window to adjust volume"));
+		return;
+	}
+
+	// 使用getWindowInfo获取进程ID
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+	DWORD processId = info.processId;
+
+	float currentVolume = volumeStates.value(processId, 1.0f);
+	volumeSlider->setValue(static_cast<int>(currentVolume * 100));
+	volumeLabel->setText(QString("%1%").arg(static_cast<int>(currentVolume * 100)));
+	
+	// 如果音量菜单可见，可以直接调整，否则显示提示
+	if (!volumeMenu->isVisible()) {
+		QMessageBox::information(this, trc("MainWindow", "Information"),
+			trc("MainWindow", "Use the Volume slider in the context menu to adjust volume"));
 	}
 }
 
