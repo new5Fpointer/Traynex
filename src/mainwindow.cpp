@@ -4,6 +4,7 @@
 #include "translator.h"
 #include "hotkeymanager.h"
 #include "volumecontrol.h"
+#include "windowinfo.h"
 
 #include <QApplication>
 #include <QStyle>
@@ -19,6 +20,10 @@
 #include <QWidgetAction>
 #include <QProcess>
 #include <QFileInfo>
+#include <QClipboard>
+#include <QMimeData>
+#include <QFile>
+#include <QTextStream>
 
 #include <psapi.h>
 #include <shellapi.h>
@@ -38,6 +43,11 @@ MainWindow::MainWindow(QWidget* parent)
 	, restoreAllHiddenAction(nullptr)
 	, hideToAppTrayAction(nullptr)
 	, restoreLastAction(nullptr)
+	, copyMenu(nullptr)
+	, copyTitleAction(nullptr)
+	, copyClassAction(nullptr)
+	, copyPathAction(nullptr)
+	, copyAllAction(nullptr)
 {
 	// 创建 UI
 	setupUI();
@@ -77,6 +87,9 @@ MainWindow::MainWindow(QWidget* parent)
 
 	// 初始隐藏主窗口
 	hide();
+	
+	// 恢复之前应用托盘隐藏的窗口
+	restoreAppTrayWindows();
 
 	refreshAllLists();
 }
@@ -116,16 +129,28 @@ void MainWindow::setupUI()
 	windowsTable->setProperty("wordWrap", false);
 
 	// 表头设置
-	windowsTable->setColumnCount(6);
+	windowsTable->setColumnCount(7);
 	windowsTable->setHorizontalHeaderLabels({
 		"",
 		trc("MainWindow", "Window Title"),
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
+	
+	// 为表头添加悬浮提示
+	for (int i = 0; i < windowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = windowsTable->horizontalHeaderItem(i);
+		if (headerItem) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
+	
 	windowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
+	windowsTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu); // 启用表头右键菜单
+	windowsTable->horizontalHeader()->setSectionsMovable(true); // 启用表头可拖动
 
 	// 表格属性
 	windowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -150,12 +175,17 @@ void MainWindow::setupUI()
 	windowsTable->setColumnWidth(2, 80);  // 句柄
 	windowsTable->setColumnWidth(3, 120); // 窗口类
 	windowsTable->setColumnWidth(4, 80);  // 进程ID
-	windowsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
-	windowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+	windowsTable->setColumnWidth(5, 200); // 进程名
+	windowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);    // 程序路径列拉伸
+	windowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);      // 图标列固定宽度
 	windowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
 	windowsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+	windowsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
+	
+	// 默认隐藏程序路径列
+	windowsTable->setColumnHidden(6, true);
 
 
 	// 组装布局
@@ -164,10 +194,15 @@ void MainWindow::setupUI()
 
 	// 创建右键菜单
 	createContextMenu();
+	createHeaderContextMenu();
 
 	// 连接信号
 	connect(windowsTable, &QTableWidget::customContextMenuRequested,
 		this, &MainWindow::onTableContextMenu);
+	
+	// 连接表头右键信号
+	connect(windowsTable->horizontalHeader(), &QHeaderView::customContextMenuRequested,
+		this, &MainWindow::onTableHeaderContextMenu);
 
 	// === 隐藏窗口页面 ===
 	QWidget* hiddenTab = new QWidget();
@@ -183,18 +218,31 @@ void MainWindow::setupUI()
 
 	// 设置默认的文本行为
 	hiddenWindowsTable->setTextElideMode(Qt::ElideRight);
+	hiddenWindowsTable->setProperty("wordWrap", false);
 
 	// 表头设置
-	hiddenWindowsTable->setColumnCount(6);
+	hiddenWindowsTable->setColumnCount(7);
 	hiddenWindowsTable->setHorizontalHeaderLabels({
 		"",
 		trc("MainWindow", "Window Title"),
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
+	
+	// 为表头添加悬浮提示
+	for (int i = 0; i < hiddenWindowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = hiddenWindowsTable->horizontalHeaderItem(i);
+		if (headerItem) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
+	
 	hiddenWindowsTable->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter); // 标题左对齐
+	hiddenWindowsTable->horizontalHeader()->setContextMenuPolicy(Qt::CustomContextMenu); // 启用表头右键菜单
+	hiddenWindowsTable->horizontalHeader()->setSectionsMovable(true); // 启用表头可拖动
 
 	// 表格属性
 	hiddenWindowsTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -219,12 +267,17 @@ void MainWindow::setupUI()
 	hiddenWindowsTable->setColumnWidth(2, 80);  // 句柄
 	hiddenWindowsTable->setColumnWidth(3, 120); // 窗口类
 	hiddenWindowsTable->setColumnWidth(4, 80);  // 进程ID
-	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
-	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Interactive);
+	hiddenWindowsTable->setColumnWidth(5, 200); // 进程名
+	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);    // 程序路径列拉伸
+	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);      // 图标列固定宽度
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
 	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+	hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
+	
+	// 默认隐藏程序路径列
+	hiddenWindowsTable->setColumnHidden(6, true);
 
 	// 组装布局
 	hiddenLayout->addWidget(hiddenWindowsTable);
@@ -232,6 +285,10 @@ void MainWindow::setupUI()
 	// 连接信号
 	connect(hiddenWindowsTable, &QTableWidget::customContextMenuRequested,
 		this, &MainWindow::onHiddenTableContextMenu);
+	
+	// 连接隐藏窗口表格表头右键信号
+	connect(hiddenWindowsTable->horizontalHeader(), &QHeaderView::customContextMenuRequested,
+		this, &MainWindow::onHiddenTableHeaderContextMenu);
 
 	// === 设置页面 ===
 	QWidget* settingsTab = new QWidget();
@@ -314,6 +371,14 @@ void MainWindow::setupUI()
 		trc("MainWindow", "Description"),
 		trc("MainWindow", "Hotkey")
 		});
+	
+	// 为表头添加悬浮提示
+	for (int i = 0; i < hotkeyTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = hotkeyTable->horizontalHeaderItem(i);
+		if (headerItem) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
 
 	// 表格属性
 	hotkeyTable->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -322,6 +387,8 @@ void MainWindow::setupUI()
 	hotkeyTable->verticalHeader()->setVisible(false);
 	hotkeyTable->setShowGrid(false);
 	hotkeyTable->setAlternatingRowColors(true);
+	hotkeyTable->setTextElideMode(Qt::ElideRight);
+	hotkeyTable->setProperty("wordWrap", false);
 
 	// 列宽设置
 	hotkeyTable->setColumnWidth(0, 120);  // 动作ID
@@ -437,13 +504,11 @@ void MainWindow::setupUI()
 
 	QPushButton* githubButton = new QPushButton(trc("MainWindow", "Visit GitHub Repository"));
 	githubButton->setObjectName("githubButton");
-
-	QPushButton* checkUpdateButton = new QPushButton(trc("MainWindow", "Check for Updates"));
-	checkUpdateButton->setObjectName("checkUpdateButton");
+	githubButton->setStyleSheet("QPushButton { padding: 8px; font-weight: bold; }");
 
 	aboutLayout->addWidget(aboutLabel);
+	aboutLayout->addSpacing(20);
 	aboutLayout->addWidget(githubButton);
-	aboutLayout->addWidget(checkUpdateButton);
 	aboutLayout->addStretch();
 
 	// 添加标签页
@@ -460,7 +525,6 @@ void MainWindow::setupUI()
 	connect(githubButton, &QPushButton::clicked, []() {
 		QDesktopServices::openUrl(QUrl("https://github.com/new5Fpointer/Traynex"));
 		});
-	connect(checkUpdateButton, &QPushButton::clicked, this, &MainWindow::showAbout);
 }
 
 void MainWindow::setupConnections()
@@ -473,6 +537,12 @@ void MainWindow::setupConnections()
 	connect(bindHotkeyButton, &QPushButton::clicked, this, &MainWindow::startBindHotkey);
 	connect(clearHotkeyButton, &QPushButton::clicked, this, &MainWindow::clearSelectedHotkey);
 	connect(hotkeyTable, &QTableWidget::itemDoubleClicked, this, &MainWindow::onHotkeyItemDoubleClicked);
+	
+	// 连接列移动信号，同步两个表格的列顺序
+	connect(windowsTable->horizontalHeader(), &QHeaderView::sectionMoved,
+		this, &MainWindow::onTableColumnMoved);
+	connect(hiddenWindowsTable->horizontalHeader(), &QHeaderView::sectionMoved,
+		this, &MainWindow::onHiddenTableColumnMoved);
 }
 
 void MainWindow::restoreSelectedWindow()
@@ -507,16 +577,9 @@ void MainWindow::restoreAllWindows()
 	WindowsTrayManager::instance().restoreAllWindows();
 
 	// 恢复应用托盘菜单隐藏的窗口
-	QList<HWND> appTrayWindows = m_appTrayWindows.keys();
-	for (HWND hwnd : appTrayWindows) {
-		if (hwnd && IsWindow(hwnd)) {
-			ShowWindow(hwnd, SW_SHOW);
-			SetForegroundWindow(hwnd);
-		}
-		removeWindowFromTrayMenu(hwnd);
-	}
+    restoreAllAppTrayWindows();
 
-	m_hiddenWindowOrder.clear();
+    m_hiddenWindowOrder.clear();
 
 	refreshAllLists();
 	updateTrayMenu();
@@ -580,6 +643,12 @@ void MainWindow::showWindow()
 
 void MainWindow::closeApp()
 {
+	// 恢复所有应用托盘菜单隐藏的窗口
+	restoreAllAppTrayWindows();
+	
+	// 清理保存文件
+	cleanupAppTraySaveFile();
+	
 	WindowsTrayManager::instance().shutdown();
 	qApp->quit();
 }
@@ -609,6 +678,15 @@ void MainWindow::closeEvent(QCloseEvent* event)
 		}
 	}
 	else {
+		// 保存表格列显示状态
+		saveColumnVisibilitySettings();
+		
+		// 恢复所有应用托盘菜单隐藏的窗口
+		restoreAllAppTrayWindows();
+		
+		// 清理保存文件
+		cleanupAppTraySaveFile();
+		
 		WindowsTrayManager::instance().shutdown();
 		if (refreshTimer) {
 			refreshTimer->stop();
@@ -703,6 +781,9 @@ void MainWindow::loadSettings()
 
 	loadHotkeySettings();
 
+	// 加载表格列显示状态
+	loadColumnVisibilitySettings();
+
 	// 应用加载的设置
 	onRefreshSettingChanged();    // 应用刷新设置
 	onAlwaysOnTopChanged();       // 应用置顶设置
@@ -770,9 +851,20 @@ void MainWindow::createContextMenu()
 	opacityMenu = new QMenu(trc("MainWindow", "Opacity"), contextMenu);
 	opacitySlider = new QSlider(Qt::Horizontal);
 	opacityLabel = new QLabel;
+	
+	volumeMenu = new QMenu(trc("MainWindow", "Volume"), contextMenu);
+	volumeSlider = new QSlider(Qt::Horizontal);
+	volumeLabel = new QLabel;
 	openFolderAction = new QAction(trc("MainWindow", "Open File Location"), this);
 	filePropsAction = new QAction(trc("MainWindow", "File Properties"), this);
 	endTaskAction = new QAction(trc("MainWindow", "End Task"), this);
+	
+	// 复制功能
+	copyMenu = new QMenu(trc("MainWindow", "Copy"), contextMenu);
+	copyTitleAction = new QAction(trc("MainWindow", "Copy Title"), this);
+	copyClassAction = new QAction(trc("MainWindow", "Copy Class"), this);
+	copyPathAction = new QAction(trc("MainWindow", "Copy Path"), this);
+	copyAllAction = new QAction(trc("MainWindow", "Copy All"), this);
 
 	toggleOnTopAction->setCheckable(true);
 	muteAction->setCheckable(true);
@@ -780,6 +872,10 @@ void MainWindow::createContextMenu()
 	opacitySlider->setRange(10, 100);
 	opacitySlider->setValue(20);
 	opacityLabel->setText("100%");
+	
+	volumeSlider->setRange(0, 100);
+	volumeSlider->setValue(100);
+	volumeLabel->setText("100%");
 
 	connect(hideToTrayAction, &QAction::triggered, this, &MainWindow::hideSelectedToTray);
 	connect(hideToAppTrayAction, &QAction::triggered, this, &MainWindow::hideToAppTray);
@@ -788,9 +884,16 @@ void MainWindow::createContextMenu()
 	connect(toggleOnTopAction, &QAction::triggered, this, &MainWindow::toggleWindowOnTop);
 	connect(muteAction, &QAction::triggered, this, &MainWindow::toggleMuteWindow);
 	connect(opacitySlider, &QSlider::valueChanged, this, &MainWindow::onOpacitySliderChanged);
+	connect(volumeSlider, &QSlider::valueChanged, this, &MainWindow::onVolumeSliderChanged);
 	connect(openFolderAction, &QAction::triggered, this, &MainWindow::openFileLocation);
 	connect(filePropsAction, &QAction::triggered, this, &MainWindow::showFileProperties);
 	connect(endTaskAction, &QAction::triggered, this, &MainWindow::endTask);
+	
+	// 连接复制功能
+	connect(copyTitleAction, &QAction::triggered, this, &MainWindow::copyTitle);
+	connect(copyClassAction, &QAction::triggered, this, &MainWindow::copyClass);
+	connect(copyPathAction, &QAction::triggered, this, &MainWindow::copyPath);
+	connect(copyAllAction, &QAction::triggered, this, &MainWindow::copyAll);
 
 	auto* sliderAction = new QWidgetAction(opacityMenu);
 	auto* sliderWidget = new QWidget;
@@ -800,6 +903,20 @@ void MainWindow::createContextMenu()
 	hLay->setContentsMargins(6, 2, 6, 2);
 	sliderAction->setDefaultWidget(sliderWidget);
 	opacityMenu->addAction(sliderAction);
+	
+	// 音量菜单 - 包含静音和音量调整功能
+	volumeMenu->addAction(muteAction);
+	volumeMenu->addSeparator();
+	
+	// 音量滑块菜单
+	auto* volumeSliderAction = new QWidgetAction(volumeMenu);
+	auto* volumeSliderWidget = new QWidget;
+	auto* volumeHLayout = new QHBoxLayout(volumeSliderWidget);
+	volumeHLayout->addWidget(volumeSlider, 1);
+	volumeHLayout->addWidget(volumeLabel);
+	volumeHLayout->setContentsMargins(6, 2, 6, 2);
+	volumeSliderAction->setDefaultWidget(volumeSliderWidget);
+	volumeMenu->addAction(volumeSliderAction);
 
 	contextMenu->addAction(hideToTrayAction);
 	contextMenu->addAction(hideToAppTrayAction);
@@ -807,13 +924,184 @@ void MainWindow::createContextMenu()
 	contextMenu->addAction(bringToFrontAction);
 	contextMenu->addAction(highlightAction);
 	contextMenu->addAction(toggleOnTopAction);
-	contextMenu->addAction(muteAction);
 	contextMenu->addMenu(opacityMenu);
+	contextMenu->addMenu(volumeMenu);
+	contextMenu->addSeparator();
+	
+	// 添加复制菜单
+	copyMenu->addAction(copyTitleAction);
+	copyMenu->addAction(copyClassAction);
+	copyMenu->addAction(copyPathAction);
+    contextMenu->addSeparator();
+    copyMenu->addAction(copyAllAction);
+	contextMenu->addMenu(copyMenu);
+	
 	contextMenu->addSeparator();
 	contextMenu->addAction(openFolderAction);
 	contextMenu->addAction(filePropsAction);
 	contextMenu->addSeparator();
 	contextMenu->addAction(endTaskAction);
+}
+
+void MainWindow::createHeaderContextMenu()
+{
+	headerContextMenu = new QMenu(this);
+
+	// 创建列显示/隐藏动作
+	showHandleColumnAction = new QAction(trc("MainWindow", "Handle"), this);
+	showClassColumnAction = new QAction(trc("MainWindow", "Class"), this);
+	showPidColumnAction = new QAction(trc("MainWindow", "Process ID"), this);
+	showProcessColumnAction = new QAction(trc("MainWindow", "Process"), this);
+	showProgramPathColumnAction = new QAction(trc("MainWindow", "Program Path"), this);
+	resetColumnWidthsAction = new QAction(trc("MainWindow", "Reset Column Widths"), this);
+
+	// 设置所有动作为可勾选
+	showHandleColumnAction->setCheckable(true);
+	showClassColumnAction->setCheckable(true);
+	showPidColumnAction->setCheckable(true);
+	showProcessColumnAction->setCheckable(true);
+	showProgramPathColumnAction->setCheckable(true);
+
+	// 默认所有列都显示（程序路径列默认隐藏）
+	showHandleColumnAction->setChecked(true);
+	showClassColumnAction->setChecked(true);
+	showPidColumnAction->setChecked(true);
+	showProcessColumnAction->setChecked(true);
+	showProgramPathColumnAction->setChecked(false);
+
+	// 连接信号
+	connect(showHandleColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(2); });
+	connect(showClassColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(3); });
+	connect(showPidColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(4); });
+	connect(showProcessColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(5); });
+	connect(showProgramPathColumnAction, &QAction::triggered, [this]() { toggleColumnVisibility(6); });
+	connect(resetColumnWidthsAction, &QAction::triggered, [this]() { 
+		resetTableColumnWidths(windowsTable);
+		resetTableColumnWidths(hiddenWindowsTable);
+	});
+
+	// 添加动作到菜单
+	headerContextMenu->addAction(showHandleColumnAction);
+	headerContextMenu->addAction(showClassColumnAction);
+	headerContextMenu->addAction(showPidColumnAction);
+	headerContextMenu->addAction(showProcessColumnAction);
+	headerContextMenu->addAction(showProgramPathColumnAction);
+	headerContextMenu->addSeparator();
+	headerContextMenu->addAction(resetColumnWidthsAction);
+}
+
+void MainWindow::onTableHeaderContextMenu(const QPoint& pos)
+{
+	// 更新菜单项状态
+	showHandleColumnAction->setChecked(!windowsTable->isColumnHidden(2));
+	showClassColumnAction->setChecked(!windowsTable->isColumnHidden(3));
+	showPidColumnAction->setChecked(!windowsTable->isColumnHidden(4));
+	showProcessColumnAction->setChecked(!windowsTable->isColumnHidden(5));
+	showProgramPathColumnAction->setChecked(!windowsTable->isColumnHidden(6));
+
+	// 显示菜单
+	headerContextMenu->exec(windowsTable->horizontalHeader()->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::onHiddenTableHeaderContextMenu(const QPoint& pos)
+{
+	// 更新菜单项状态
+	showHandleColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(2));
+	showClassColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(3));
+	showPidColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(4));
+	showProcessColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(5));
+	showProgramPathColumnAction->setChecked(!hiddenWindowsTable->isColumnHidden(6));
+
+	// 显示菜单
+	headerContextMenu->exec(hiddenWindowsTable->horizontalHeader()->viewport()->mapToGlobal(pos));
+}
+
+void MainWindow::toggleColumnVisibility(int column)
+{
+	// 禁止隐藏图标列(0)和窗口标题列(1)
+	if (column == 0 || column == 1) {
+		return;
+	}
+	
+	// 切换主表格列的显示/隐藏
+	bool isHidden = windowsTable->isColumnHidden(column);
+	windowsTable->setColumnHidden(column, !isHidden);
+	
+	// 切换隐藏窗口表格列的显示/隐藏
+	hiddenWindowsTable->setColumnHidden(column, !isHidden);
+	
+	// 更新最后一列的拉伸模式
+	updateLastColumnStretchMode();
+	
+	// 保存列显示状态到配置文件
+	saveColumnVisibilitySettings();
+	
+	// 确保列顺序正确
+	syncTableColumnOrder();
+}
+
+void MainWindow::resetTableColumnWidths(QTableWidget* table)
+{
+	if (!table) return;
+
+	// 恢复默认列宽
+	table->setColumnWidth(0, 24);   // 图标列
+	table->setColumnWidth(1, 300);  // 标题
+	table->setColumnWidth(2, 80);   // 句柄
+	table->setColumnWidth(3, 120);  // 窗口类
+	table->setColumnWidth(4, 80);   // 进程ID
+	table->setColumnWidth(5, 200);  // 进程名
+	
+	// 设置列宽模式
+	table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);      // 图标列固定
+	table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Interactive);
+	table->horizontalHeader()->setSectionResizeMode(6, QHeaderView::Stretch);    // 程序路径列拉伸
+	
+	// 更新拉伸模式
+	updateLastColumnStretchMode();
+	
+	// 保存列显示状态到配置文件
+	saveColumnVisibilitySettings();
+}
+
+void MainWindow::updateLastColumnStretchMode()
+{
+	// 查找最后一个可见列
+	int lastVisibleColumn = -1;
+	for (int i = windowsTable->columnCount() - 1; i >= 0; --i) {
+		if (!windowsTable->isColumnHidden(i)) {
+			lastVisibleColumn = i;
+			break;
+		}
+	}
+	
+	if (lastVisibleColumn >= 0) {
+		// 重置所有列的拉伸模式
+		for (int i = 0; i < windowsTable->columnCount(); ++i) {
+			if (i == 0) {
+				windowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed); // 图标列固定
+			} else if (i == lastVisibleColumn) {
+				windowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch); // 最后一列拉伸
+			} else {
+				windowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Interactive);
+			}
+		}
+		
+		// 对隐藏窗口表格应用相同的设置
+		for (int i = 0; i < hiddenWindowsTable->columnCount(); ++i) {
+			if (i == 0) {
+				hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed); // 图标列固定
+			} else if (i == lastVisibleColumn) {
+				hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Stretch); // 最后一列拉伸
+			} else {
+				hiddenWindowsTable->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Interactive);
+			}
+		}
+	}
 }
 
 void MainWindow::onTableContextMenu(const QPoint& pos)
@@ -859,6 +1147,21 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 	GetWindowThreadProcessId(hwnd, &processId);
 	bool isMuted = muteStates.value(processId, false);
 	muteAction->setChecked(isMuted);
+	
+	// 获取当前音量并设置滑块
+	float currentVolume = volumeStates.value(processId, 1.0f); // 默认100%
+	if (isMuted) {
+		// 如果静音，显示0%
+		volumeSlider->setValue(0);
+		volumeLabel->setText("0%");
+	} else {
+		// 如果没有静音，显示实际音量（如果是负数，取绝对值）
+		if (currentVolume < 0) {
+			currentVolume = -currentVolume;
+		}
+		volumeSlider->setValue(static_cast<int>(currentVolume * 100));
+		volumeLabel->setText(QString("%1%").arg(static_cast<int>(currentVolume * 100)));
+	}
 
 	// 根据窗口状态更新菜单项
 	bool isHidden = false;
@@ -869,7 +1172,7 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 			break;
 		}
 	}
-	bool isOnTop = isWindowOnTop(hwnd);
+	bool isOnTop = WindowInfoUtils::isWindowOnTop(hwnd);
 
 	hideToTrayAction->setEnabled(!isHidden);
 	bringToFrontAction->setEnabled(true);
@@ -898,7 +1201,7 @@ void MainWindow::onTableContextMenu(const QPoint& pos)
 
 void MainWindow::refreshWindowsTable()
 {
-	auto currentWindowsInfo = getAllWindowsInfo();
+	auto currentWindowsInfo = WindowInfoUtils::getAllWindowsInfo();
 
 	// 检查窗口列表是否发生变化
 	bool needsRefresh = false;
@@ -931,16 +1234,25 @@ void MainWindow::refreshWindowsTable()
 	windowsTable->setSortingEnabled(false);
 	windowsTable->setRowCount(0);
 
-	// 设置列数为6，添加图标列
-	windowsTable->setColumnCount(6);
+	// 设置列数为7，添加图标列和程序路径列
+	windowsTable->setColumnCount(7);
 	windowsTable->setHorizontalHeaderLabels({
 		"", // 图标列
 		trc("MainWindow", "Window Title"),
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
+
+	// 设置列提示
+	for (int i = 0; i < windowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = windowsTable->horizontalHeaderItem(i);
+		if (headerItem && !headerItem->text().isEmpty()) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
 
 	for (const auto& window : currentWindowsInfo) {
 		int row = windowsTable->rowCount();
@@ -956,19 +1268,28 @@ void MainWindow::refreshWindowsTable()
 		// 窗口标题
 		QTableWidgetItem* titleItem = new QTableWidgetItem(window.second.title);
 		titleItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(window.second.hwnd));
+		titleItem->setToolTip(window.second.title);  // 添加悬浮提示
 
 		// 窗口句柄
 		QTableWidgetItem* handleItem = new QTableWidgetItem(
-			QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 16).toUpper());
+			QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 10));
+		handleItem->setToolTip(QString::number(reinterpret_cast<qulonglong>(window.second.hwnd), 10));
 
 		// 窗口类名
 		QTableWidgetItem* classItem = new QTableWidgetItem(window.second.className);
+		classItem->setToolTip(window.second.className);
 
 		// 进程ID
 		QTableWidgetItem* pidItem = new QTableWidgetItem(QString::number(window.second.processId));
+		pidItem->setToolTip(QString::number(window.second.processId));
 
 		// 进程名
 		QTableWidgetItem* processItem = new QTableWidgetItem(window.second.processName);
+		processItem->setToolTip(window.second.processName);
+
+		// 程序路径
+		QTableWidgetItem* pathItem = new QTableWidgetItem(window.second.processPath);
+		pathItem->setToolTip(window.second.processPath);
 
 		windowsTable->setItem(row, 0, iconItem);     // 图标
 		windowsTable->setItem(row, 1, titleItem);    // 窗口标题
@@ -976,10 +1297,11 @@ void MainWindow::refreshWindowsTable()
 		windowsTable->setItem(row, 3, classItem);    // 类
 		windowsTable->setItem(row, 4, pidItem);      // 进程ID
 		windowsTable->setItem(row, 5, processItem);  // 进程名
+		windowsTable->setItem(row, 6, pathItem);     // 程序路径
 
 		// 隐藏窗口显示为灰色
 		if (window.second.isHidden) {
-			for (int col = 0; col < 6; ++col) {
+			for (int col = 0; col < 7; ++col) {
 				if (auto item = windowsTable->item(row, col)) {
 					item->setForeground(Qt::gray);
 				}
@@ -1006,154 +1328,6 @@ void MainWindow::refreshWindowsTable()
 	m_lastWindowsInfo = currentWindowsInfo;
 }
 
-QList<QPair<HWND, MainWindow::WindowInfo>> MainWindow::getAllWindowsInfo() const
-{
-	QList<QPair<HWND, WindowInfo>> windows;
-	DWORD currentProcessId = GetCurrentProcessId();
-
-	// 获取所有隐藏窗口
-	auto hiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
-	QSet<HWND> hiddenSet;
-	for (const auto& hidden : hiddenWindows) {
-		hiddenSet.insert(hidden.first);
-	}
-
-	EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
-		auto windowsList = reinterpret_cast<QList<QPair<HWND, WindowInfo>>*>(lParam);
-		DWORD currentProcessId = GetCurrentProcessId();
-
-		// 获取窗口标题
-		wchar_t title[256];
-		GetWindowText(hwnd, title, 256);
-		QString windowTitle = QString::fromWCharArray(title);
-
-		// 过滤零宽空格和其他不可见控制字符
-		windowTitle.remove(QChar(0x200B));  // 零宽空格
-		windowTitle.remove(QChar(0x200C));  // 零宽非连接符
-		windowTitle.remove(QChar(0x200D));  // 零宽连接符
-		windowTitle.remove(QChar(0xFEFF));  // 零宽无中断空格
-
-		// 过滤条件
-		// 1.窗口有效性
-		if (!IsWindow(hwnd) || !IsWindowVisible(hwnd)) {
-			return TRUE;
-		}
-		// 2.非自身进程
-		DWORD processId;
-		GetWindowThreadProcessId(hwnd, &processId);
-		if (processId == currentProcessId) {
-			return TRUE;
-		}
-		// 3.标题非空
-		LONG_PTR exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-		if (exStyle & WS_EX_TOOLWINDOW) {
-			return TRUE;
-		}
-		// 4.非删除标记
-		if (GetProp(hwnd, L"ITaskList_Deleted")) {
-			return TRUE;
-		}
-		// 5.所有者关系和可激活性
-		HWND owner = GetWindow(hwnd, GW_OWNER);
-		bool hasOwner = (owner != nullptr);
-		bool isAppWindow = (exStyle & WS_EX_APPWINDOW);
-
-		if (hasOwner && !isAppWindow) {
-			return TRUE;
-		}
-
-		if ((exStyle & WS_EX_NOACTIVATE) && !isAppWindow) {
-			return TRUE;
-		}
-
-		wchar_t className[256];
-		GetClassName(hwnd, className, 256);
-		QString windowClass = QString::fromWCharArray(className);
-
-		// 6.Application Frame Window 检查
-		if (windowClass == "ApplicationFrameWindow" ||
-			windowClass == "Windows.UI.Core.CoreWindow" ||
-			windowClass == "StartMenuSizingFrame" ||
-			windowClass == "Shell_LightDismissOverlay") {
-			return TRUE;
-		}
-
-		// 获取进程名
-		HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-		wchar_t processName[MAX_PATH] = L"";
-		QString processNameStr = "Unknown";
-
-		if (process) {
-			GetModuleFileNameEx(process, NULL, processName, MAX_PATH);
-			processNameStr = QFileInfo(QString::fromWCharArray(processName)).fileName();
-			CloseHandle(process);
-		}
-
-		// 获取窗口图标
-		QIcon windowIcon;
-		HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
-		if (!hIcon) {
-			hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
-		}
-		if (!hIcon) {
-			hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0);
-		}
-		if (!hIcon) {
-			hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON);
-		}
-
-		// 如果仍然没有图标，尝试从进程获取
-		if (!hIcon && processId) {
-			HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-			if (hProcess) {
-				wchar_t exePath[MAX_PATH];
-				if (GetModuleFileNameEx(hProcess, NULL, exePath, MAX_PATH)) {
-					HICON hAppIcon = ExtractIcon(GetModuleHandle(NULL), exePath, 0);
-					if (hAppIcon) {
-						hIcon = hAppIcon;
-					}
-				}
-				CloseHandle(hProcess);
-			}
-		}
-
-		// 如果获取到图标，转换为QIcon
-		if (hIcon) {
-			windowIcon = QIcon(QPixmap::fromImage(QImage::fromHICON(hIcon)));
-
-			// 清理系统图标资源（如果是我们自己提取的）
-			if (hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0) &&
-				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM) &&
-				hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0) &&
-				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICON)) {
-				DestroyIcon(hIcon);
-			}
-		}
-
-		WindowInfo info;
-		info.title = windowTitle;
-		info.processName = processNameStr;
-		info.className = windowClass;
-		info.processId = processId;
-		info.hwnd = hwnd;
-		info.isVisible = IsWindowVisible(hwnd);
-		info.isHidden = false; // 会在外部设置
-		info.icon = windowIcon; // 设置图标
-
-		windowsList->append(qMakePair(hwnd, info));
-		return TRUE;
-		}, reinterpret_cast<LPARAM>(&windows));
-
-	// 标记隐藏窗口
-	for (auto& window : windows) {
-		if (hiddenSet.contains(window.first)) {
-			window.second.isHidden = true;
-		}
-	}
-
-	return windows;
-}
-
 HWND MainWindow::getSelectedWindow() const
 {
 	int row = windowsTable->currentRow();
@@ -1175,8 +1349,9 @@ void MainWindow::endTask()
 {
 	HWND hwnd = getSelectedWindow();
 	if (hwnd) {
-		DWORD processId;
-		GetWindowThreadProcessId(hwnd, &processId);
+		// 使用getWindowInfo获取进程ID
+		WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+		DWORD processId = info.processId;
 
 		HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, processId);
 		if (process) {
@@ -1222,7 +1397,8 @@ void MainWindow::retranslateUI()
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
 
 	hiddenWindowsTable->setHorizontalHeaderLabels({
@@ -1231,8 +1407,24 @@ void MainWindow::retranslateUI()
 		trc("MainWindow", "Handle"),
 		trc("MainWindow", "Class"),
 		trc("MainWindow", "Process ID"),
-		trc("MainWindow", "Process")
+		trc("MainWindow", "Process"),
+		trc("MainWindow", "Program Path")
 		});
+
+	// 更新表格列提示
+	for (int i = 0; i < windowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = windowsTable->horizontalHeaderItem(i);
+		if (headerItem && !headerItem->text().isEmpty()) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
+	
+	for (int i = 0; i < hiddenWindowsTable->columnCount(); ++i) {
+		QTableWidgetItem* headerItem = hiddenWindowsTable->horizontalHeaderItem(i);
+		if (headerItem && !headerItem->text().isEmpty()) {
+			headerItem->setToolTip(headerItem->text());
+		}
+	}
 
 	// 标签页标题
 	tabWidget->setTabText(0, trc("MainWindow", "Main"));
@@ -1311,9 +1503,19 @@ void MainWindow::retranslateUI()
 		toggleOnTopAction->setText(trc("MainWindow", "Always on Top"));
 		muteAction->setText(trc("MainWindow", "Mute Process"));
 		opacityMenu->setTitle(trc("MainWindow", "Opacity"));
+		volumeMenu->setTitle(trc("MainWindow", "Volume"));
 		openFolderAction->setText(trc("MainWindow", "Open File Location"));
 		filePropsAction->setText(trc("MainWindow", "File Properties"));
 		endTaskAction->setText(trc("MainWindow", "End Task"));
+		
+		// 复制菜单
+		if (copyMenu) {
+			copyMenu->setTitle(trc("MainWindow", "Copy"));
+			copyTitleAction->setText(trc("MainWindow", "Copy Title"));
+			copyClassAction->setText(trc("MainWindow", "Copy Class"));
+			copyPathAction->setText(trc("MainWindow", "Copy Path"));
+			copyAllAction->setText(trc("MainWindow", "Copy All"));
+		}
 	}
 
 	// 隐藏窗口表格右键菜单
@@ -1321,6 +1523,16 @@ void MainWindow::retranslateUI()
 		restoreHiddenAction->setText(trc("MainWindow", "Restore Window"));
 		restoreLastHiddenAction->setText(trc("MainWindow", "Restore Last Window"));
 		restoreAllHiddenAction->setText(trc("MainWindow", "Restore All Windows"));
+	}
+
+	// 表头右键菜单
+	if (headerContextMenu) {
+		showHandleColumnAction->setText(trc("MainWindow", "Handle"));
+		showClassColumnAction->setText(trc("MainWindow", "Class"));
+		showPidColumnAction->setText(trc("MainWindow", "Process ID"));
+		showProcessColumnAction->setText(trc("MainWindow", "Process"));
+		showProgramPathColumnAction->setText(trc("MainWindow", "Program Path"));
+		resetColumnWidthsAction->setText(trc("MainWindow", "Reset Column Widths"));
 	}
 
 	// 更新关于文本
@@ -1474,46 +1686,10 @@ void MainWindow::highlightWindow()
 	}
 
 	// 高亮选中的窗口
-	flashWindowInTaskbar(hwnd);
+	WindowInfoUtils::flashWindowInTaskbar(hwnd);
 }
 
-void MainWindow::flashWindowInTaskbar(HWND hwnd)
-{
-	if (!hwnd || !IsWindow(hwnd)) {
-		return;
-	}
 
-	FlashWindow(hwnd, TRUE);
-
-	qDebug() << "Window highlighted:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
-}
-
-bool MainWindow::isWindowOnTop(HWND hwnd)
-{
-	if (!hwnd || !IsWindow(hwnd)) {
-		return false;
-	}
-
-	// 获取窗口扩展样式
-	LONG_PTR style = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-	return (style & WS_EX_TOPMOST) != 0;
-}
-
-void MainWindow::setWindowOnTop(HWND hwnd, bool onTop)
-{
-	if (!hwnd || !IsWindow(hwnd)) {
-		return;
-	}
-
-	// 设置窗口置顶状态
-	SetWindowPos(hwnd,
-		onTop ? HWND_TOPMOST : HWND_NOTOPMOST,
-		0, 0, 0, 0,
-		SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-
-	qDebug() << "Window" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16)
-		<< "set to" << (onTop ? "always on top" : "normal");
-}
 
 void MainWindow::toggleWindowOnTop()
 {
@@ -1532,8 +1708,8 @@ void MainWindow::toggleWindowOnTop()
 	}
 
 	// 检查当前状态并切换
-	bool currentlyOnTop = isWindowOnTop(hwnd);
-	setWindowOnTop(hwnd, !currentlyOnTop);
+	bool currentlyOnTop = WindowInfoUtils::isWindowOnTop(hwnd);
+	WindowInfoUtils::setWindowOnTop(hwnd, !currentlyOnTop);
 
 	// 刷新显示以更新状态
 	refreshAllLists();
@@ -1546,52 +1722,29 @@ void MainWindow::refreshHiddenWindowsTable()
 
 	// 获取系统托盘隐藏的窗口
 	auto systemHiddenWindows = WindowsTrayManager::instance().getHiddenWindows();
+	qDebug() << "System tray hidden windows count:" << systemHiddenWindows.size();
 
 	// 获取应用托盘菜单隐藏的窗口
 	auto appTrayHiddenWindows = m_appTrayWindows;
+	qDebug() << "App tray hidden windows count:" << appTrayHiddenWindows.size();
 
 	// 合并两种隐藏窗口
-	QMap<HWND, std::tuple<QString, QString, QString, DWORD, QIcon>> allHiddenWindows;
+	QMap<HWND, std::tuple<QString, QString, QString, DWORD, QIcon, QString>> allHiddenWindows;
 
 	// 添加系统托盘隐藏窗口
 	for (const auto& window : systemHiddenWindows) {
 		HWND hwnd = window.first;
 		if (hwnd && IsWindow(hwnd)) {
-			// 获取进程名、类名、进程ID和图标
-			QString processName = "Unknown";
-			QString className = "Unknown";
-			DWORD processId;
-			QIcon windowIcon;
-
-			GetWindowThreadProcessId(hwnd, &processId);
-
-			HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-			if (process) {
-				wchar_t processPath[MAX_PATH] = L"";
-				if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
-					processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
-				}
-				CloseHandle(process);
-			}
-
-			wchar_t classBuffer[256];
-			if (GetClassName(hwnd, classBuffer, 256)) {
-				className = QString::fromWCharArray(classBuffer);
-			}
-
-			// 获取图标
-			HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
-			if (!hIcon) hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
-			if (hIcon) {
-				windowIcon = QIcon(QPixmap::fromImage(QImage::fromHICON(hIcon)));
-			}
-
+			// 使用getWindowInfo获取窗口信息
+			WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+			
 			allHiddenWindows[hwnd] = std::make_tuple(
 				QString::fromStdWString(window.second),
-				processName,
-				className,
-				processId,
-				windowIcon
+				info.processName,
+				info.className,
+				info.processId,
+				info.icon,
+				info.processPath
 			);
 		}
 	}
@@ -1601,41 +1754,10 @@ void MainWindow::refreshHiddenWindowsTable()
 		HWND hwnd = it.key();
 		if (hwnd && IsWindow(hwnd)) {
 			if (!allHiddenWindows.contains(hwnd)) {
-				wchar_t title[256];
-				QString windowTitle = trc("MainWindow", "Unknown Window");
-				if (GetWindowText(hwnd, title, 256) > 0) {
-					windowTitle = QString::fromWCharArray(title);
-				}
-
-				QString processName = "Unknown";
-				QString className = "Unknown";
-				DWORD processId;
-				QIcon windowIcon;
-
-				GetWindowThreadProcessId(hwnd, &processId);
-
-				HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-				if (process) {
-					wchar_t processPath[MAX_PATH] = L"";
-					if (GetModuleFileNameEx(process, NULL, processPath, MAX_PATH)) {
-						processName = QFileInfo(QString::fromWCharArray(processPath)).fileName();
-					}
-					CloseHandle(process);
-				}
-
-				wchar_t classBuffer[256];
-				if (GetClassName(hwnd, classBuffer, 256)) {
-					className = QString::fromWCharArray(classBuffer);
-				}
-
-				// 获取图标
-				HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
-				if (!hIcon) hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
-				if (hIcon) {
-					windowIcon = QIcon(QPixmap::fromImage(QImage::fromHICON(hIcon)));
-				}
-
-				allHiddenWindows[hwnd] = std::make_tuple(windowTitle, processName, className, processId, windowIcon);
+				// 使用getWindowInfo获取窗口信息
+		WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+				
+				allHiddenWindows[hwnd] = std::make_tuple(info.title, info.processName, info.className, info.processId, info.icon, info.processPath);
 			}
 		}
 	}
@@ -1643,7 +1765,7 @@ void MainWindow::refreshHiddenWindowsTable()
 	// 显示所有隐藏窗口
 	for (auto it = allHiddenWindows.begin(); it != allHiddenWindows.end(); ++it) {
 		HWND hwnd = it.key();
-		auto [title, processName, className, processId, icon] = it.value();
+		auto [title, processName, className, processId, icon, processPath] = it.value();
 
 		int row = hiddenWindowsTable->rowCount();
 		hiddenWindowsTable->insertRow(row);
@@ -1658,19 +1780,28 @@ void MainWindow::refreshHiddenWindowsTable()
 		// 窗口标题
 		QTableWidgetItem* titleItem = new QTableWidgetItem(title);
 		titleItem->setData(Qt::UserRole, reinterpret_cast<qulonglong>(hwnd));
+		titleItem->setToolTip(title);  // 添加悬浮提示
 
 		// 窗口句柄
 		QTableWidgetItem* handleItem = new QTableWidgetItem(
-			QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
+			QString::number(reinterpret_cast<qulonglong>(hwnd), 10));
+		handleItem->setToolTip(QString::number(reinterpret_cast<qulonglong>(hwnd), 10));
 
 		// 窗口类名
 		QTableWidgetItem* classItem = new QTableWidgetItem(className);
+		classItem->setToolTip(className);
 
 		// 进程ID
 		QTableWidgetItem* pidItem = new QTableWidgetItem(QString::number(processId));
+		pidItem->setToolTip(QString::number(processId));
 
 		// 进程名
 		QTableWidgetItem* processItem = new QTableWidgetItem(processName);
+		processItem->setToolTip(processName);
+
+		// 程序路径
+		QTableWidgetItem* pathItem = new QTableWidgetItem(processPath);
+		pathItem->setToolTip(processPath);
 
 		hiddenWindowsTable->setItem(row, 0, iconItem);     // 图标
 		hiddenWindowsTable->setItem(row, 1, titleItem);    // 窗口标题
@@ -1678,6 +1809,7 @@ void MainWindow::refreshHiddenWindowsTable()
 		hiddenWindowsTable->setItem(row, 3, classItem);    // 类
 		hiddenWindowsTable->setItem(row, 4, pidItem);      // 进程ID
 		hiddenWindowsTable->setItem(row, 5, processItem);  // 进程名
+		hiddenWindowsTable->setItem(row, 6, pathItem);     // 程序路径
 	}
 
 	hiddenWindowsTable->setSortingEnabled(true);
@@ -1795,14 +1927,9 @@ void MainWindow::hideToAppTray()
 		return;
 	}
 
-	// 检查是否是受保护的窗口
-	wchar_t className[256];
-	if (!GetClassName(hwnd, className, 256)) {
-		QMessageBox::warning(this, trc("MainWindow", "Error"),
-			trc("MainWindow", "Cannot get window class name"));
-		return;
-	}
-
+	// 使用getWindowInfo获取窗口信息
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+	
 	// 禁止隐藏系统关键窗口
 	const wchar_t* restrictedWindows[] = {
 		L"WorkerW",
@@ -1811,20 +1938,16 @@ void MainWindow::hideToAppTray()
 	};
 
 	for (const wchar_t* restricted : restrictedWindows) {
-		if (wcscmp(className, restricted) == 0) {
+		if (info.className.compare(QString::fromWCharArray(restricted), Qt::CaseInsensitive) == 0) {
 			QMessageBox::warning(this, trc("MainWindow", "Error"),
 				trc("MainWindow", "Cannot hide system windows"));
 			return;
 		}
 	}
 
-	// 获取窗口标题
-	wchar_t title[256];
-	GetWindowText(hwnd, title, 256);
-	QString windowTitle = QString::fromWCharArray(title);
-
-	// 获取窗口图标
-	QIcon windowIcon = getWindowIcon(hwnd);
+	// 使用从getWindowInfo获取的标题和图标
+	QString windowTitle = info.title;
+	QIcon windowIcon = info.icon;
 
 	// 隐藏窗口
 	ShowWindow(hwnd, SW_HIDE);
@@ -1839,6 +1962,9 @@ void MainWindow::hideToAppTray()
 	// 刷新显示
 	refreshAllLists();
 	updateTrayMenu();
+	
+	// 保存应用托盘窗口状态
+	saveAppTrayWindows();
 
 	QMessageBox::information(this, trc("MainWindow", "Success"),
 		trc("MainWindow", "Window hidden to app tray successfully"));
@@ -1864,7 +1990,7 @@ void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIco
 	// 获取或创建图标
 	QIcon windowIcon = icon;
 	if (windowIcon.isNull()) {
-		windowIcon = getWindowIcon(hwnd);
+		windowIcon = WindowInfoUtils::getWindowIcon(hwnd);
 	}
 
 	// 如果仍然没有图标，使用默认图标
@@ -1910,10 +2036,10 @@ void MainWindow::addWindowToTrayMenu(HWND hwnd, const QString& title, const QIco
 	restoreAction->setData(windowData);
 
 	// 设置工具提示显示更详细的信息
-	QString toolTip = QString("%1\nProcess: %2\nHandle: 0x%3")
+	QString toolTip = QString("%1\nProcess: %2\nHandle: %3")
 		.arg(title)
 		.arg(processName)
-		.arg(QString::number(reinterpret_cast<qulonglong>(hwnd), 16).toUpper());
+		.arg(QString::number(reinterpret_cast<qulonglong>(hwnd), 10));
 	restoreAction->setToolTip(toolTip);
 
 	connect(restoreAction, &QAction::triggered, this, &MainWindow::restoreWindowFromAppTray);
@@ -2069,9 +2195,121 @@ void MainWindow::restoreWindowFromAppTray()
 	// 刷新显示
 	refreshAllLists();
 	updateTrayMenu();
+	
+	// 保存应用托盘窗口状态
+	saveAppTrayWindows();
 
 	qDebug() << "Window restored from app tray:" << title
-		<< "Handle:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 16);
+		<< "Handle:" << QString::number(reinterpret_cast<qulonglong>(hwnd), 10);
+}
+
+void MainWindow::restoreAllAppTrayWindows() {
+    // 恢复所有应用托盘菜单隐藏的窗口
+    QList<HWND> appTrayWindows = m_appTrayWindows.keys();
+    for (HWND hwnd : appTrayWindows) {
+        if (hwnd && IsWindow(hwnd)) {
+            ShowWindow(hwnd, SW_SHOW);
+            SetForegroundWindow(hwnd);
+        }
+        removeWindowFromTrayMenu(hwnd);
+    }
+    
+    // 保存应用托盘窗口状态（清空）
+    saveAppTrayWindows();
+}
+
+void MainWindow::saveAppTrayWindows() {
+    QString savePath = QCoreApplication::applicationDirPath() + "/traymenu_save.dat";
+    QFile file(savePath);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        QList<HWND> appTrayWindows = m_appTrayWindows.keys();
+        qDebug() << "Saving app tray windows to:" << savePath << "Window count:" << appTrayWindows.size();
+        
+        for (HWND hwnd : appTrayWindows) {
+            if (hwnd && IsWindow(hwnd)) {
+                qulonglong hwndValue = reinterpret_cast<qulonglong>(hwnd);
+                out << hwndValue << "\n";
+                qDebug() << "  - Saved window handle:" << QString::number(hwndValue, 10);
+            }
+        }
+        file.close();
+        qDebug() << "App tray windows saved successfully";
+    } else {
+        qDebug() << "Failed to open save file for writing:" << savePath;
+    }
+}
+
+void MainWindow::restoreAppTrayWindows() {
+    QString savePath = QCoreApplication::applicationDirPath() + "/traymenu_save.dat";
+    QFile file(savePath);
+    if (!file.exists()) {
+        qDebug() << "App tray save file not found:" << savePath;
+        return;
+    }
+    
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&file);
+        int restoredCount = 0;
+        while (!in.atEnd()) {
+            QString line = in.readLine().trimmed();
+            if (!line.isEmpty()) {
+                bool ok = false;
+                qulonglong hwndValue = line.toULongLong(&ok);
+                if (ok) {
+                    HWND hwnd = reinterpret_cast<HWND>(hwndValue);
+                    // 验证窗口是否仍然存在（不检查可见性，因为窗口可能被隐藏）
+                    if (hwnd && IsWindow(hwnd)) {
+                        // 检查是否已经在托盘菜单中（防止重复添加）
+                        if (m_appTrayWindows.contains(hwnd)) {
+                            qDebug() << "Window already in tray menu, skipping:" << QString::number(hwndValue, 10);
+                            continue;
+                        }
+                        
+                        // 检查窗口是否已经被隐藏（可能是其他程序隐藏的）
+                        if (IsWindowVisible(hwnd)) {
+                            // 获取窗口信息
+                            WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+                            // 隐藏窗口并添加到托盘菜单
+                            ShowWindow(hwnd, SW_HIDE);
+                            addWindowToTrayMenu(hwnd, info.title, info.icon);
+                            // 记录隐藏顺序
+                            m_hiddenWindowOrder.removeAll(hwnd);
+                            m_hiddenWindowOrder.prepend(hwnd);
+                            restoredCount++;
+                            qDebug() << "Restored window from app tray:" << info.title << "Handle:" << QString::number(hwndValue, 10);
+                        } else {
+                            // 窗口已经隐藏，直接添加到托盘菜单
+                            WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+                            addWindowToTrayMenu(hwnd, info.title, info.icon);
+                            m_hiddenWindowOrder.removeAll(hwnd);
+                            m_hiddenWindowOrder.prepend(hwnd);
+                            restoredCount++;
+                            qDebug() << "Window already hidden, added to tray menu:" << info.title << "Handle:" << QString::number(hwndValue, 10);
+                        }
+                    } else {
+                        qDebug() << "Window no longer exists, handle:" << QString::number(hwndValue, 10);
+                    }
+                }
+            }
+        }
+        file.close();
+        qDebug() << "App tray windows restored from:" << savePath << "Count:" << restoredCount;
+        
+        // 刷新显示
+        refreshAllLists();
+        updateTrayMenu();
+    } else {
+        qDebug() << "Failed to open app tray save file:" << savePath;
+    }
+}
+
+void MainWindow::cleanupAppTraySaveFile() {
+    QString savePath = QCoreApplication::applicationDirPath() + "/traymenu_save.dat";
+    if (QFile::exists(savePath)) {
+        QFile::remove(savePath);
+        qDebug() << "App tray save file cleaned up:" << savePath;
+    }
 }
 
 void MainWindow::restoreLastWindow()
@@ -2117,75 +2355,6 @@ void MainWindow::restoreLastWindow()
 	}
 }
 
-QIcon MainWindow::getWindowIcon(HWND hwnd) const
-{
-	if (!hwnd || !IsWindow(hwnd)) {
-		return QIcon();
-	}
-
-	QIcon windowIcon;
-
-	// 尝试获取窗口的小图标
-	HICON hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0);
-
-	// 尝试获取窗口类的小图标
-	if (!hIcon) {
-		hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM);
-	}
-
-	// 尝试获取窗口的大图标
-	if (!hIcon) {
-		hIcon = (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0);
-	}
-
-	// 尝试获取窗口类的大图标
-	if (!hIcon) {
-		hIcon = (HICON)GetClassLongPtr(hwnd, GCLP_HICON);
-	}
-
-	// 从进程文件获取图标
-	if (!hIcon) {
-		DWORD processId;
-		GetWindowThreadProcessId(hwnd, &processId);
-
-		if (processId) {
-			HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-			if (hProcess) {
-				wchar_t exePath[MAX_PATH];
-				if (GetModuleFileNameEx(hProcess, NULL, exePath, MAX_PATH)) {
-					// 提取第一个图标
-					hIcon = ExtractIcon(GetModuleHandle(NULL), exePath, 0);
-				}
-				CloseHandle(hProcess);
-			}
-		}
-	}
-
-	// 使用默认应用程序图标
-	if (!hIcon) {
-		hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	}
-
-	// 将 HICON 转换为 QIcon
-	if (hIcon) {
-		QPixmap pixmap = QPixmap::fromImage(QImage::fromHICON(hIcon));
-		if (!pixmap.isNull()) {
-			windowIcon = QIcon(pixmap);
-
-			// 清理提取的图标资源
-			if (hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_SMALL, 0) &&
-				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICONSM) &&
-				hIcon != (HICON)SendMessage(hwnd, WM_GETICON, ICON_BIG, 0) &&
-				hIcon != (HICON)GetClassLongPtr(hwnd, GCLP_HICON) &&
-				hIcon != LoadIcon(NULL, IDI_APPLICATION)) {
-				DestroyIcon(hIcon);
-			}
-		}
-	}
-
-	return windowIcon;
-}
-
 void MainWindow::updateTrayMenuIcons()
 {
 	// 更新所有托盘菜单项的图标
@@ -2196,7 +2365,7 @@ void MainWindow::updateTrayMenuIcons()
 		if (hwnd && IsWindow(hwnd) && action) {
 			// 检查当前图标是否有效
 			if (action->icon().isNull()) {
-				QIcon newIcon = getWindowIcon(hwnd);
+				QIcon newIcon = WindowInfoUtils::getWindowIcon(hwnd);
 				if (!newIcon.isNull()) {
 					action->setIcon(newIcon);
 
@@ -2430,20 +2599,158 @@ void MainWindow::toggleMuteWindow()
 		return;
 	}
 
-	DWORD processId;
-	GetWindowThreadProcessId(hwnd, &processId);
+	// 使用getWindowInfo获取进程ID
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+	DWORD processId = info.processId;
 
-	bool current = muteStates.value(processId, false);
-	bool success = VolumeControl::SetProcessMuteWithTimeout(processId, !current, 1000);
-
-	if (success) {
-		muteStates[processId] = !current;
-		QMessageBox::information(this, trc("MainWindow", "Success"),
-			trc("MainWindow", "Window %1.").arg(current ? "unmuted" : "muted"));
+	bool currentMute = muteStates.value(processId, false);
+	
+	if (!currentMute) {
+		// 静音操作：先获取当前音量并保存，然后设置静音
+		float currentVolume = VolumeControl::GetProcessVolumeWithTimeout(processId, 1000);
+		
+		if (currentVolume >= 0.0f) {
+			// 成功获取当前音量，保存静音前的音量
+			muteVolumeStates[processId] = currentVolume;
+			qDebug() << "Saving mute volume for process" << processId << ":" << currentVolume;
+			
+			// 只设置静音状态，不修改音量
+			bool success = VolumeControl::SetProcessMuteWithTimeout(processId, true, 1000);
+			if (success) {
+				muteStates[processId] = true;
+				// UI显示静音状态
+				volumeSlider->setValue(0);
+				volumeLabel->setText("0% (Muted)");
+				
+				QMessageBox::information(this, trc("MainWindow", "Success"),
+					trc("MainWindow", "Window muted."));
+			} else {
+				QMessageBox::warning(this, trc("MainWindow", "Error"),
+					trc("MainWindow", "Failed to mute process."));
+				muteVolumeStates.remove(processId); // 清理保存的音量
+			}
+		} else {
+			// 获取音量失败
+			QMessageBox::warning(this, trc("MainWindow", "Error"),
+				trc("MainWindow", "Failed to get current volume."));
+		}
+	} else {
+		// 取消静音操作：恢复之前的音量
+		float muteVolume = muteVolumeStates.value(processId, 0.5f); // 默认50%
+		
+		qDebug() << "Restoring mute volume for process" << processId << ":" << muteVolume;
+		
+		// 先恢复静音状态
+		bool success = VolumeControl::SetProcessMuteWithTimeout(processId, false, 1000);
+		
+		if (success) {
+			muteStates[processId] = false;
+			
+			// 恢复之前的音量
+			bool volumeSuccess = VolumeControl::SetProcessVolumeWithTimeout(processId, muteVolume, 1000);
+			if (volumeSuccess) {
+				volumeSlider->setValue(static_cast<int>(muteVolume * 100));
+				volumeLabel->setText(QString("%1%").arg(static_cast<int>(muteVolume * 100)));
+				volumeStates[processId] = muteVolume;
+			}
+			
+			// 清理保存的静音前音量
+			muteVolumeStates.remove(processId);
+			
+			QMessageBox::information(this, trc("MainWindow", "Success"),
+				trc("MainWindow", "Window unmuted."));
+		} else {
+			QMessageBox::warning(this, trc("MainWindow", "Error"),
+				trc("MainWindow", "Failed to unmute process."));
+		}
 	}
-	else {
-		QMessageBox::warning(this, trc("MainWindow", "Error"),
-			trc("MainWindow", "Failed to mute/unmute process."));
+}
+
+void MainWindow::onVolumeSliderChanged(int value)
+{
+	HWND hwnd = getSelectedWindow();
+	if (!hwnd) return;
+	
+	DWORD processId = 0;
+	GetWindowThreadProcessId(hwnd, &processId);
+	
+	float volume = value / 100.0f;
+	volumeLabel->setText(QString("%1%").arg(value));
+
+	// 如果窗口当前是静音状态，调整音量应该取消静音
+	bool isMuted = muteStates.value(processId, false);
+	if (isMuted && value > 0) {
+		// 取消静音
+		if (VolumeControl::SetProcessMuteWithTimeout(processId, false, 1000)) {
+			muteStates[processId] = false;
+			muteAction->setChecked(false);
+			
+			// 如果之前保存了静音前的音量，使用那个音量
+			float muteVolume = muteVolumeStates.value(processId, volume);
+			if (muteVolume > 0 && value != static_cast<int>(muteVolume * 100)) {
+				volume = muteVolume;
+				volumeSlider->setValue(static_cast<int>(muteVolume * 100));
+				volumeLabel->setText(QString("%1%").arg(static_cast<int>(muteVolume * 100)));
+			}
+			
+			// 清理保存的静音前音量
+			muteVolumeStates.remove(processId);
+}
+	}
+	
+	// 应用音量调整
+	bool success = VolumeControl::SetProcessVolumeWithTimeout(processId, volume, 1000);
+	
+	if (success) {
+		// 更新音量状态
+		volumeStates[processId] = volume;
+		
+		// 如果音量设为0，自动开启静音
+		if (volume == 0.0f && !isMuted) {
+			// 开启静音前保存当前音量
+			float currentVolume = VolumeControl::GetProcessVolumeWithTimeout(processId, 1000);
+			if (currentVolume >= 0.0f) {
+				muteVolumeStates[processId] = currentVolume;
+				
+				// 开启静音
+				if (VolumeControl::SetProcessMuteWithTimeout(processId, true, 1000)) {
+					muteStates[processId] = true;
+					muteAction->setChecked(true);
+					volumeLabel->setText("0% (Muted)");
+				} else {
+					// 静音失败，清理保存的音量
+					muteVolumeStates.remove(processId);
+				}
+			}
+		}
+	}
+}
+
+void MainWindow::adjustWindowVolume()
+{
+	HWND hwnd = getSelectedWindow();
+	if (!hwnd) {
+		QMessageBox::information(this, trc("MainWindow", "Information"),
+			trc("MainWindow", "Please select a window to adjust volume"));
+		return;
+	}
+
+	// 使用getWindowInfo获取进程ID
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+	DWORD processId = info.processId;
+
+	float currentVolume = volumeStates.value(processId, 1.0f);
+	// 如果是负数，取绝对值（静音状态）
+	if (currentVolume < 0) {
+		currentVolume = -currentVolume;
+	}
+	volumeSlider->setValue(static_cast<int>(currentVolume * 100));
+	volumeLabel->setText(QString("%1%").arg(static_cast<int>(currentVolume * 100)));
+	
+	// 如果音量菜单可见，可以直接调整，否则显示提示
+	if (!volumeMenu->isVisible()) {
+		QMessageBox::information(this, trc("MainWindow", "Information"),
+			trc("MainWindow", "Use the Volume slider in the context menu to adjust volume"));
 	}
 }
 
@@ -2532,7 +2839,72 @@ void MainWindow::createDefaultConfig()
 	settings.setValue("refresh/auto_refresh", true);
 	settings.setValue("refresh/interval", 500);
 
+	// 表格列显示状态（列0和列1始终显示）
+	settings.setValue("table/column_handle_visible", true);  // 句柄列
+	settings.setValue("table/column_class_visible", true);  // 类列
+	settings.setValue("table/column_pid_visible", true);  // 进程ID列
+	settings.setValue("table/column_process_visible", true);  // 进程列
+	settings.setValue("table/column_program_path_visible", false); // 程序路径列默认隐藏
+
 	settings.sync();
+}
+
+void MainWindow::saveColumnVisibilitySettings()
+{
+	QSettings settings(getConfigPath(), QSettings::IniFormat);
+	
+	// 保存列显示状态（列0和列1始终显示，不保存）
+	settings.setValue("table/column_handle_visible", !windowsTable->isColumnHidden(2)); // 句柄列
+	settings.setValue("table/column_class_visible", !windowsTable->isColumnHidden(3)); // 类列
+	settings.setValue("table/column_pid_visible", !windowsTable->isColumnHidden(4)); // 进程ID列
+	settings.setValue("table/column_process_visible", !windowsTable->isColumnHidden(5)); // 进程列
+	settings.setValue("table/column_program_path_visible", !windowsTable->isColumnHidden(6)); // 程序路径列
+	
+	settings.sync();
+	
+	// 保存列顺序
+	saveColumnOrderSettings();
+}
+
+void MainWindow::loadColumnVisibilitySettings()
+{
+	QSettings settings(getConfigPath(), QSettings::IniFormat);
+	
+	// 加载列顺序
+	loadColumnOrderSettings();
+	
+	// 加载列显示状态（列0和列1始终显示）
+	bool columnHandleVisible = settings.value("table/column_handle_visible", true).toBool(); // 句柄列
+	bool columnClassVisible = settings.value("table/column_class_visible", true).toBool(); // 类列
+	bool columnPidVisible = settings.value("table/column_pid_visible", true).toBool(); // 进程ID列
+	bool columnProcessVisible = settings.value("table/column_process_visible", true).toBool(); // 进程列
+	bool columnProgramPathVisible = settings.value("table/column_program_path_visible", false).toBool(); // 程序路径列默认隐藏
+	
+	// 应用列显示状态到两个表格
+	windowsTable->setColumnHidden(2, !columnHandleVisible);
+	windowsTable->setColumnHidden(3, !columnClassVisible);
+	windowsTable->setColumnHidden(4, !columnPidVisible);
+	windowsTable->setColumnHidden(5, !columnProcessVisible);
+	windowsTable->setColumnHidden(6, !columnProgramPathVisible);
+	
+	hiddenWindowsTable->setColumnHidden(2, !columnHandleVisible);
+	hiddenWindowsTable->setColumnHidden(3, !columnClassVisible);
+	hiddenWindowsTable->setColumnHidden(4, !columnPidVisible);
+	hiddenWindowsTable->setColumnHidden(5, !columnProcessVisible);
+	hiddenWindowsTable->setColumnHidden(6, !columnProgramPathVisible);
+	
+	// 更新菜单项状态
+	if (showHandleColumnAction) showHandleColumnAction->setChecked(columnHandleVisible);
+	if (showClassColumnAction) showClassColumnAction->setChecked(columnClassVisible);
+	if (showPidColumnAction) showPidColumnAction->setChecked(columnPidVisible);
+	if (showProcessColumnAction) showProcessColumnAction->setChecked(columnProcessVisible);
+	if (showProgramPathColumnAction) showProgramPathColumnAction->setChecked(columnProgramPathVisible);
+	
+	// 更新拉伸模式
+	updateLastColumnStretchMode();
+	
+	// 保存列显示状态到配置文件（使用新键名）
+	saveColumnVisibilitySettings();
 }
 
 void MainWindow::onResetDefaults()
@@ -2579,9 +2951,11 @@ void MainWindow::initializeHotkeyTable()
 		// 动作ID
 		QTableWidgetItem* idItem = new QTableWidgetItem(action.first);
 		idItem->setData(Qt::UserRole, action.first);  // 保存ID
+		idItem->setToolTip(action.first);  // 添加悬浮提示
 
 		// 描述
 		QTableWidgetItem* descItem = new QTableWidgetItem(action.second);
+		descItem->setToolTip(action.second);  // 添加悬浮提示
 
 		// 热键
 		QString hotkeyText = "";
@@ -2589,6 +2963,7 @@ void MainWindow::initializeHotkeyTable()
 			hotkeyText = currentHotkeys[action.first].toString();
 		}
 		QTableWidgetItem* hotkeyItem = new QTableWidgetItem(hotkeyText);
+		hotkeyItem->setToolTip(hotkeyText);  // 添加悬浮提示
 
 		hotkeyTable->setItem(row, 0, idItem);
 		hotkeyTable->setItem(row, 1, descItem);
@@ -2702,5 +3077,205 @@ void MainWindow::onHotkeyItemDoubleClicked(QTableWidgetItem* item)
 {
 	if (item && item->column() == 2) {  // 双击热键列
 		startBindHotkey();
+	}
+}
+
+// 复制功能实现
+HWND MainWindow::getSelectedWindowFromCurrentTable() const
+{
+	// 只处理主窗口表（第0个标签页）
+	if (tabWidget->currentIndex() == 0) { // 主窗口表
+		int row = windowsTable->currentRow();
+		if (row < 0) return nullptr;
+		return reinterpret_cast<HWND>(windowsTable->item(row, 0)->data(Qt::UserRole).toULongLong());
+	}
+	return nullptr;
+}
+
+void MainWindow::copyTitle()
+{
+	HWND hwnd = getSelectedWindowFromCurrentTable();
+	if (!hwnd || !IsWindow(hwnd)) return;
+	
+	// 使用getWindowInfo获取窗口信息，不过滤不可见字符
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd, false);
+	
+	// 使用原始窗口标题，不过滤任何字符
+	QApplication::clipboard()->setText(info.originalTitle);
+}
+
+void MainWindow::copyClass()
+{
+	HWND hwnd = getSelectedWindowFromCurrentTable();
+	if (!hwnd || !IsWindow(hwnd)) return;
+	
+	// 使用getWindowInfo获取窗口信息
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+	
+	QApplication::clipboard()->setText(info.className);
+}
+
+void MainWindow::copyPath()
+{
+	HWND hwnd = getSelectedWindowFromCurrentTable();
+	if (!hwnd || !IsWindow(hwnd)) return;
+	
+	// 使用getWindowInfo获取窗口信息
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd);
+	
+	QApplication::clipboard()->setText(info.processPath);
+}
+
+void MainWindow::copyAll()
+{
+	HWND hwnd = getSelectedWindowFromCurrentTable();
+	if (!hwnd || !IsWindow(hwnd)) return;
+	
+	// 使用getWindowInfo获取窗口信息，不过滤不可见字符
+	WindowInfo info = WindowInfoUtils::getWindowInfo(hwnd, false);
+	
+	// 创建HTML格式的文本（类似Traynard的实现，使用翻译后的列标题）
+	QString html = QString(
+		"<table>"
+		"<tr><th>%1</th><th>%2</th><th>%3</th><th>%4</th><th>%5</th><th>%6</th></tr>"
+		"<tr>"
+		"<td>%7</td>"
+		"<td>%8</td>"
+		"<td>%9</td>"
+		"<td>%10</td>"
+		"<td>%11</td>"
+		"<td>%12</td>"
+		"</tr>"
+		"</table>")
+		.arg(trc("MainWindow", "Window Title").toHtmlEscaped())      // 1: 窗口标题
+		.arg(trc("MainWindow", "Handle").toHtmlEscaped())           // 2: 句柄
+		.arg(trc("MainWindow", "Class").toHtmlEscaped())            // 3: 类
+		.arg(trc("MainWindow", "Process ID").toHtmlEscaped())       // 4: 进程ID
+		.arg(trc("MainWindow", "Process").toHtmlEscaped())          // 5: 进程
+		.arg(trc("MainWindow", "Application Path").toHtmlEscaped()) // 6: 应用程序路径
+		.arg(info.originalTitle.toHtmlEscaped())                    // 7: 窗口标题值（原始标题）
+		.arg(QString::number((quintptr)hwnd, 10))                   // 8: 句柄值
+		.arg(info.className.toHtmlEscaped())                        // 9: 类值
+		.arg(info.processId)                                        // 10: 进程ID值
+		.arg(info.processName.toHtmlEscaped())                      // 11: 进程名值
+		.arg(info.processPath.toHtmlEscaped());                     // 12: 路径值
+	
+	// 创建纯文本格式（使用翻译后的标签）
+	QString plainText = QString("%1: %2\n%3: %4\n%5: %6\n%7: %8\n%9: %10\n%11: %12")
+		.arg(trc("MainWindow", "Window Title"))      // 1: 窗口标题
+		.arg(info.originalTitle)                     // 2: 窗口标题值（原始标题）
+		.arg(trc("MainWindow", "Handle"))            // 3: 句柄
+		.arg(QString::number((quintptr)hwnd, 10))            // 4: 句柄值
+		.arg(trc("MainWindow", "Class"))             // 5: 类
+		.arg(info.className)                         // 6: 类值
+		.arg(trc("MainWindow", "Process ID"))        // 7: 进程ID
+		.arg(info.processId)                         // 8: 进程ID值
+		.arg(trc("MainWindow", "Process"))           // 9: 进程
+		.arg(info.processName)                       // 10: 进程名值
+		.arg(trc("MainWindow", "Application Path"))  // 11: 应用程序路径
+		.arg(info.processPath);                      // 12: 路径值
+	
+	// 设置剪贴板内容（支持HTML和纯文本）
+	QMimeData* mimeData = new QMimeData();
+	mimeData->setHtml(html);
+	mimeData->setText(plainText);
+	QApplication::clipboard()->setMimeData(mimeData);
+}
+
+// 表头拖动功能实现
+void MainWindow::onTableColumnMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex)
+{
+	// 检查是否移动了图标列（第0列）
+	if (logicalIndex == 0) {
+		// 禁止移动图标列，将其移回原位置
+		windowsTable->horizontalHeader()->moveSection(newVisualIndex, oldVisualIndex);
+		return;
+	}
+	
+	// 同步隐藏窗口表格的列顺序
+	syncTableColumnOrder();
+	
+	// 保存列顺序设置
+	saveColumnOrderSettings();
+}
+
+void MainWindow::onHiddenTableColumnMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex)
+{
+	// 检查是否移动了图标列（第0列）
+	if (logicalIndex == 0) {
+		// 禁止移动图标列，将其移回原位置
+		hiddenWindowsTable->horizontalHeader()->moveSection(newVisualIndex, oldVisualIndex);
+		return;
+	}
+	
+	// 同步主窗口表格的列顺序
+	syncTableColumnOrder();
+	
+	// 保存列顺序设置
+	saveColumnOrderSettings();
+}
+
+void MainWindow::syncTableColumnOrder()
+{
+	// 获取主表格的列顺序
+	QHeaderView* sourceHeader = windowsTable->horizontalHeader();
+	QHeaderView* targetHeader = hiddenWindowsTable->horizontalHeader();
+	
+	// 同步列顺序，但确保图标列（逻辑索引0）保持在位置0
+	for (int i = 0; i < sourceHeader->count(); ++i) {
+		int logicalIndex = sourceHeader->logicalIndex(i);
+		
+		// 如果是图标列，确保它在位置0
+		if (logicalIndex == 0 && i != 0) {
+			// 将图标列移动到位置0
+			sourceHeader->moveSection(i, 0);
+			targetHeader->moveSection(targetHeader->visualIndex(logicalIndex), 0);
+			break;
+		}
+		
+		targetHeader->moveSection(targetHeader->visualIndex(logicalIndex), i);
+	}
+}
+
+void MainWindow::saveColumnOrderSettings()
+{
+	QSettings settings(getConfigPath(), QSettings::IniFormat);
+	
+	// 保存列顺序
+	QHeaderView* header = windowsTable->horizontalHeader();
+	QStringList columnOrder;
+	for (int i = 0; i < header->count(); ++i) {
+		columnOrder.append(QString::number(header->logicalIndex(i)));
+	}
+	
+	settings.setValue("table/column_order", columnOrder.join(","));
+	settings.sync();
+}
+
+void MainWindow::loadColumnOrderSettings()
+{
+	QSettings settings(getConfigPath(), QSettings::IniFormat);
+	
+	// 加载列顺序
+	QString columnOrderStr = settings.value("table/column_order", "").toString();
+	if (!columnOrderStr.isEmpty()) {
+		QStringList columnOrder = columnOrderStr.split(",");
+		if (columnOrder.size() == windowsTable->columnCount()) {
+			// 应用列顺序到两个表格
+			for (int visualIndex = 0; visualIndex < columnOrder.size(); ++visualIndex) {
+				int logicalIndex = columnOrder[visualIndex].toInt();
+				
+				// 移动列到指定位置
+				windowsTable->horizontalHeader()->moveSection(
+					windowsTable->horizontalHeader()->visualIndex(logicalIndex), 
+					visualIndex
+				);
+				
+				hiddenWindowsTable->horizontalHeader()->moveSection(
+					hiddenWindowsTable->horizontalHeader()->visualIndex(logicalIndex), 
+					visualIndex
+				);
+			}
+		}
 	}
 }

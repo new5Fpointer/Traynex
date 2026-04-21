@@ -115,8 +115,22 @@ std::vector<std::pair<HWND, std::wstring>> WindowsTrayManager::getHiddenWindows(
 std::wstring WindowsTrayManager::getWindowTitle(HWND hwnd) const
 {
     wchar_t title[256];
-    if (GetWindowText(hwnd, title, 256) > 0) {
-        return std::wstring(title);
+    if (GetWindowTextW(hwnd, title, 256) > 0) {
+        std::wstring windowTitle = std::wstring(title);
+        
+        // 过滤零宽空格和其他不可见控制字符
+        // 手动移除特定字符
+        std::wstring filteredTitle;
+        for (wchar_t ch : windowTitle) {
+            if (ch != 0x200B &&  // 零宽空格
+                ch != 0x200C &&  // 零宽非连接符
+                ch != 0x200D &&  // 零宽连接符
+                ch != 0xFEFF) {  // 零宽无中断空格
+                filteredTitle.push_back(ch);
+            }
+        }
+        
+        return filteredTitle;
     }
     return L"Unknown Window";
 }
@@ -170,6 +184,9 @@ bool WindowsTrayManager::minimizeWindowToTray(HWND hwnd)
     wcscpy_s(nid.szTip, windowTitle);
 
     bool success = Shell_NotifyIcon(NIM_ADD, &nid);
+    wchar_t buf[256];
+    swprintf(buf, L"Created icon: uID = %d, hwnd = 0x%p\n", nid.uID, hwnd);
+    OutputDebugString(buf);
     if (!success) {
         return false;
     }
@@ -205,14 +222,14 @@ void WindowsTrayManager::restoreAllWindows()
     m_hiddenWindows.clear();
 
     // 清理保存文件
-    DeleteFile(L"traymond_save.dat");
+    DeleteFile(L"trayicon_save.dat");
 
     emit trayWindowsChanged();
 }
 
 void WindowsTrayManager::saveHiddenWindows()
 {
-    std::wofstream file("traymond_save.dat");
+    std::wofstream file("trayicon_save.dat");
     if (file.is_open()) {
         for (const auto& hiddenWindow : m_hiddenWindows) {
             file << reinterpret_cast<uintptr_t>(hiddenWindow.hwnd) << std::endl;
@@ -223,7 +240,7 @@ void WindowsTrayManager::saveHiddenWindows()
 
 void WindowsTrayManager::restoreHiddenWindows()
 {
-    std::wifstream file("traymond_save.dat");
+    std::wifstream file("trayicon_save.dat");
     if (!file.is_open()) {
         return;
     }
@@ -267,12 +284,18 @@ LRESULT CALLBACK WindowsTrayManager::windowProc(HWND hwnd, UINT uMsg, WPARAM wPa
     }
 
     switch (uMsg) {
-        case WM_TRAYICON:
-            if (lParam == WM_LBUTTONDBLCLK) {
-                // 双击恢复窗口
-                manager->showWindowFromTray(static_cast<UINT>(wParam));
+        case WM_TRAYICON: {
+            UINT mouseMsg = LOWORD(lParam);
+            UINT iconId = HIWORD(lParam);
+            if (mouseMsg == WM_LBUTTONDBLCLK) {
+                wchar_t buf[256];
+                swprintf(buf, L"Double click: iconId = 0x%p\n", hwnd);
+                OutputDebugString(buf);
+
+                manager->showWindowFromTray(iconId);
             }
             break;
+        }
 
         case WM_COMMAND:
             break;

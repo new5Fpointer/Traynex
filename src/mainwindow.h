@@ -20,6 +20,7 @@
 #include <QMap>
 #include <QLineEdit>
 #include <windows.h>
+#include "windowinfo.h"
 
 class MainWindow : public QMainWindow {
 	Q_OBJECT
@@ -62,11 +63,32 @@ private slots:
 	void openFileLocation();
 	void showFileProperties();
 	void onResetDefaults();
+	
+	// 复制功能
+	HWND getSelectedWindowFromCurrentTable() const;
+	void copyTitle();
+	void copyClass();
+	void copyPath();
+	void copyAll();
 
 	void onHotkeySelectionChanged();
 	void startBindHotkey();
 	void clearSelectedHotkey();
 	void onHotkeyItemDoubleClicked(QTableWidgetItem* item);
+
+	// 表头右键菜单功能
+	void onTableHeaderContextMenu(const QPoint& pos);
+	void onHiddenTableHeaderContextMenu(const QPoint& pos);
+	void toggleColumnVisibility(int column);
+	void resetTableColumnWidths(QTableWidget* table);
+	void updateLastColumnStretchMode();
+	
+	// 表头拖动功能
+	void onTableColumnMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex);
+	void onHiddenTableColumnMoved(int logicalIndex, int oldVisualIndex, int newVisualIndex);
+	void syncTableColumnOrder();
+	void saveColumnOrderSettings();
+	void loadColumnOrderSettings();
 
 protected:
 	void closeEvent(QCloseEvent* event) override;
@@ -74,6 +96,7 @@ protected:
 
 private:
 	void createTrayIcon();
+	void createHeaderContextMenu();
 	void setupUI();
 	void setupConnections();
 	void loadSettings();
@@ -87,11 +110,6 @@ private:
 
 	void updateWindowFlags();
 
-	void flashWindowInTaskbar(HWND hwnd);
-
-	bool isWindowOnTop(HWND hwnd);
-	void setWindowOnTop(HWND hwnd, bool onTop);
-
 	void addWindowToTrayMenu(HWND hwnd, const QString& title, const QIcon& icon = QIcon());
 	void removeWindowFromTrayMenu(HWND hwnd);
 	void updateTrayMenuLayout();
@@ -100,32 +118,32 @@ private:
 	void saveHotkeySettings();
 	void loadHotkeySettings();
 
-	void finishHotkeySetting(const QString& keySequence);
+    void restoreAllAppTrayWindows();
+
+    void finishHotkeySetting(const QString& keySequence);
 	void cancelHotkeySetting();
 
 	void toggleMuteWindow();
+	void adjustWindowVolume();
+	void onVolumeSliderChanged(int value);
 
 	void createDefaultConfig();
+	void saveColumnVisibilitySettings();
+	void loadColumnVisibilitySettings();
 
 	void initializeHotkeyTable();
 	bool isHotkeyAvailable(const QKeySequence& keySequence);
+	
+	// 应用托盘窗口持久化
+	void saveAppTrayWindows();
+	void restoreAppTrayWindows();
+	void cleanupAppTraySaveFile();
 
-	QIcon getWindowIcon(HWND hwnd) const;
-
-	struct WindowInfo {
-		QString title;
-		QString processName;
-		QString className;
-		DWORD processId;
-		HWND hwnd;
-		bool isHidden;
-		bool isVisible;
-		QIcon icon;
-	};
-	QList<QPair<HWND, WindowInfo>> getAllWindowsInfo() const;
 	QList<QPair<HWND, WindowInfo>> m_lastWindowsInfo;
 	QList<HWND> m_hiddenWindowOrder;
 	QMap<DWORD, bool> muteStates;
+	QMap<DWORD, float> volumeStates;
+	QMap<DWORD, float> muteVolumeStates;
 
 	// 配置文件路径
 	QString getConfigPath() const;
@@ -149,11 +167,23 @@ private:
 	QAction* openFolderAction;
 	QAction* filePropsAction;
 	QAction* endTaskAction;
+	
+	// 复制功能菜单
+	QMenu* copyMenu;
+	QAction* copyTitleAction;
+	QAction* copyClassAction;
+	QAction* copyPathAction;
+	QAction* copyAllAction;
 
-	// 音量子控件
+	// 透明度和音量控件
 	QMenu* opacityMenu;
 	QSlider* opacitySlider;
 	QLabel* opacityLabel;
+	
+	// 音量调整菜单
+	QMenu* volumeMenu;
+	QSlider* volumeSlider;
+	QLabel* volumeLabel;
 
 	// 隐藏窗口页面组件
 	QTableWidget* hiddenWindowsTable;
@@ -163,6 +193,15 @@ private:
 	QAction* restoreHiddenAction;
 	QAction* restoreLastHiddenAction;
 	QAction* restoreAllHiddenAction;
+
+	// 表头右键菜单（图标列和窗口标题列已从菜单中移除）
+	QMenu* headerContextMenu;
+	QAction* showHandleColumnAction;
+	QAction* showClassColumnAction;
+	QAction* showPidColumnAction;
+	QAction* showProcessColumnAction;
+	QAction* showProgramPathColumnAction;
+	QAction* resetColumnWidthsAction;
 
 	// 设置页面组件
 	QCheckBox* startWithSystemCheck;

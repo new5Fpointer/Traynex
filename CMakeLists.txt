@@ -27,6 +27,8 @@ set(PROJECT_SOURCES
     src/hotkeymanager.cpp
     src/volumecontrol.h
     src/volumecontrol.cpp
+    src/windowinfo.h
+    src/windowinfo.cpp
     resource.qrc
     icon.rc
 )

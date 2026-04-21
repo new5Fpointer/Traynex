@@ -122,6 +122,10 @@ Tray Menu=Tray Menu
 
 ; === Context Menu Actions ===
 Copy=Copy
+Copy Title=Copy Title
+Copy Class=Copy Class
+Copy Path=Copy Path
+Copy All=Copy All
 Window Class=Window Class
 Window Name=Window Name
 Application Path=Application Path
@@ -157,6 +161,10 @@ Please select a window to mute/unmute=Please select a process to mute/unmute
 Process muted.=Process muted
 Process unmuted.=Process unmuted
 Failed to mute/unmute process.=Failed to mute/unmute process
+Volume=Volume
+Please select a window to adjust volume=Please select a window to adjust volume
+Volume adjusted.=Volume adjusted
+Failed to adjust volume.=Failed to adjust volume
 Opacity=Opacity
 Open File Location=Open File Location
 File Properties=File Properties
@@ -172,3 +180,7 @@ Confirm Reset=Confirm Reset
 Are you sure you want to reset all settings to default?=Are you sure you want to reset all settings to default?
 Reset Complete=Reset Complete
 All settings have been restored to default.=All settings have been restored to default.
+
+; === Table Header Context Menu ===
+Reset Column Widths=Reset Column Widths
+Program Path=Program Path
