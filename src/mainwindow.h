@@ -143,6 +143,7 @@ private:
 	QList<HWND> m_hiddenWindowOrder;
 	QMap<DWORD, bool> muteStates;
 	QMap<DWORD, float> volumeStates;
+	QMap<DWORD, float> muteVolumeStates;
 
 	// 配置文件路径
 	QString getConfigPath() const;
