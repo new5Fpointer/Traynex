@@ -3034,9 +3034,10 @@ bool MainWindow::isHotkeyAvailable(const QKeySequence& keySequence)
 		}
 	}
 
-	if (HotkeyManager::isSystemReservedHotkey(keySequence)) {
+	// 检查热键是否可用
+	if (!HotkeyManager::instance().testHotkey(keySequence)) {
 		QMessageBox::warning(this, trc("MainWindow", "Warning"),
-			trc("MainWindow", "This hotkey is reserved by the system! Please choose another combination."));
+			trc("MainWindow", "This hotkey is not available or already in use by another application! Please choose another combination."));
 		return false;
 	}
 	return true;

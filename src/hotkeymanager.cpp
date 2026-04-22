@@ -291,54 +291,30 @@ QHash<QString, QKeySequence> HotkeyManager::getAllHotkeys() const
 	return m_hotkeys;
 }
 
-bool HotkeyManager::isSystemReservedHotkey(const QKeySequence& keySequence)
-{
-	if (keySequence.isEmpty()) {
-		return false;
-	}
+HotkeyAvailability HotkeyManager::testHotkey(const QKeySequence &keySequence) {
+    if (!m_hotkeyWindow) {
+        return HotkeyAvailability::Invalid;
+    }
 
-	UINT modifiers, key;
-	if (!parseKeySequence(keySequence, modifiers, key)) {
-		return false;
-	}
+    UINT modifiers, key;
+    if (!parseKeySequence(keySequence, modifiers, key)) {
+        return HotkeyAvailability::Invalid;
+    }
 
-	// 只检查无法被应用程序捕获的系统保留热键
-	// Ctrl+Alt+Del - 安全选项（无法被应用程序捕获）
-	if ((modifiers & MOD_CONTROL) && (modifiers & MOD_ALT) && key == VK_DELETE) {
-		return true;
-	}
+    static const UINT TEST_ID = 0xCFFF;
 
-	// 应用程序可以捕获并处理这些热键，但用户应该谨慎使用
-	// 这里不再将这些标记为系统保留热键
-	// 让testHotkey函数实际测试热键是否可用
+    if (RegisterHotKey(m_hotkeyWindow, TEST_ID, modifiers | MOD_NOREPEAT, key)) {
+        UnregisterHotKey(m_hotkeyWindow, TEST_ID);
+        return HotkeyAvailability::Available;
+    }
 
-	return false;
-}
-
-bool HotkeyManager::testHotkey(const QKeySequence& keySequence)
-{
-	if (!m_hotkeyWindow) {
-		qWarning() << "Hotkey window not created";
-		return false;
-	}
-
-	UINT modifiers, key;
-	if (!parseKeySequence(keySequence, modifiers, key)) {
-		qWarning() << "Failed to parse key sequence for test:" << keySequence.toString();
-		return false;
-	}
-
-	// 临时热键ID
-	int testId = 99999;
-
-	// 尝试注册热键
-	bool success = RegisterHotKey(m_hotkeyWindow, testId, modifiers | MOD_NOREPEAT, key);
-	
-	// 如果成功，立即注销
-	if (success) {
-		UnregisterHotKey(m_hotkeyWindow, testId);
-	}
-
-	qDebug() << "Hotkey test:" << keySequence.toString() << "->" << (success ? "Available" : "Unavailable");
-	return success;
+    DWORD err = GetLastError();
+    switch (err) {
+    case 1409: // ERROR_HOTKEY_ALREADY_REGISTERED
+        return HotkeyAvailability::Occupied;
+    case 5: // ERROR_ACCESS_DENIED
+        return HotkeyAvailability::Reserved;
+    default:
+        return HotkeyAvailability::Invalid;
+    }
 }

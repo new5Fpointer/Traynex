@@ -24,9 +24,6 @@ public:
 	// 检查热键是否已注册
 	bool isHotkeyRegistered(const QString& id) const;
 
-	// 检查是否为系统保留热键
-	static bool isSystemReservedHotkey(const QKeySequence& keySequence);
-
 	// 获取热键的虚拟键码和修饰符
 	static bool parseKeySequence(const QKeySequence& keySequence, UINT& modifiers, UINT& key);
 
