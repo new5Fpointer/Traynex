@@ -47,6 +47,9 @@ public:
 	// 获取所有已注册的热键
 	QHash<QString, QKeySequence> getAllHotkeys() const;
 
+	// 获取热键注册状态
+	bool isHotkeyActive(const QString& id) const;
+
 signals:
 	void hotkeyTriggered(const QString& id);
 

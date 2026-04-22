@@ -211,6 +211,9 @@ bool HotkeyManager::registerHotkey(const QString &id, const QKeySequence &keySeq
         unregisterHotkey(id);
     }
 
+    // 始终保存热键配置到m_hotkeys，即使注册失败
+    m_hotkeys[id] = keySequence;
+    
     // 检测热键可用性
     auto availability = testHotkey(keySequence);
     if (availability != HotkeyAvailability::Available) {
@@ -226,7 +229,7 @@ bool HotkeyManager::registerHotkey(const QString &id, const QKeySequence &keySeq
             reason = "Invalid";
             break;
         }
-        qWarning() << "Cannot register hotkey" << id << ":" << reason;
+        qWarning() << "Cannot register hotkey" << id << ":" << reason << "(but configuration saved)";
         return false;
     }
 
@@ -239,11 +242,11 @@ bool HotkeyManager::registerHotkey(const QString &id, const QKeySequence &keySeq
     if (RegisterHotKey(m_hotkeyWindow, hotkeyId, modifiers | MOD_NOREPEAT, key)) {
         m_hotkeyIds[id] = hotkeyId;
         m_idToHotkey[hotkeyId] = id;
-        m_hotkeys[id] = keySequence;
         qDebug() << "Hotkey registered:" << id << "=" << keySequence.toString();
         return true;
     }
 
+    qWarning() << "Failed to register hotkey" << id << "but configuration saved";
     return false;
 }
 
@@ -318,6 +321,11 @@ bool HotkeyManager::isHotkeyAvailable(const QString& excludeId, const QKeySequen
 QHash<QString, QKeySequence> HotkeyManager::getAllHotkeys() const
 {
 	return m_hotkeys;
+}
+
+bool HotkeyManager::isHotkeyActive(const QString& id) const
+{
+	return m_hotkeyIds.contains(id);
 }
 
 HotkeyAvailability HotkeyManager::testHotkey(const QKeySequence &keySequence) {
