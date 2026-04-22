@@ -302,162 +302,43 @@ bool HotkeyManager::isSystemReservedHotkey(const QKeySequence& keySequence)
 		return false;
 	}
 
-	// 检查常见 Windows 系统保留热键
-	// 这些热键通常由 Windows 系统或常见应用程序使用
-
-	// 1.检查是否包含 Win 键
-	bool hasWinKey = (modifiers & MOD_WIN) != 0;
-
-	if (hasWinKey) {
-		// Windows 系统热键列表（部分）
-		// Win + 字母/数字键
-		if (key >= 'A' && key <= 'Z') {
-			// 常见 Win 组合键
-			switch (key) {
-				case 'A': // Win+A - 操作中心
-				case 'B': // Win+B - 快速切换通知区域
-				case 'C': // Win+C - Cortana/Teams 聊天
-				case 'D': // Win+D - 显示桌面
-				case 'E': // Win+E - 文件资源管理器
-				case 'F': // Win+F - 反馈中心
-				case 'G': // Win+G - Xbox Game Bar
-				case 'H': // Win+H - 听写
-				case 'I': // Win+I - 设置
-				case 'J': // Win+J - 焦点助手
-				case 'K': // Win+K - 连接
-				case 'L': // Win+L - 锁定电脑
-				case 'M': // Win+M - 最小化所有窗口
-				case 'O': // Win+O - 锁定设备方向
-				case 'P': // Win+P - 投影模式
-				case 'Q': // Win+Q - 搜索
-				case 'R': // Win+R - 运行对话框
-				case 'S': // Win+S - 搜索
-				case 'T': // Win+T - 任务栏循环
-				case 'U': // Win+U - 轻松使用设置中心
-				case 'V': // Win+V - 剪贴板历史记录
-				case 'W': // Win+W - 小工具
-				case 'X': // Win+X - 快速链接菜单
-				case 'Y': // Win+Y - 切换输入
-				case 'Z': // Win+Z - 对齐布局（Windows 11）
-				case '1': // Win+1-9 - 启动任务栏程序
-				case '2':
-				case '3':
-				case '4':
-				case '5':
-				case '6':
-				case '7':
-				case '8':
-				case '9':
-				case '0': // Win+0 - 启动第10个任务栏程序
-					return true;
-			}
-		}
-
-		// Win + 功能键
-		switch (key) {
-			case VK_F1:  // Win+F1 - 帮助
-			case VK_F3:  // Win+F3 - 搜索
-			case VK_F4:  // Win+F4 - 关闭窗口
-			case VK_F6:  // Win+F6 - 切换窗口
-			case VK_TAB: // Win+Tab - 任务视图
-			case VK_PAUSE: // Win+Pause - 系统属性
-			case VK_PRINT: // Win+PrintScreen - 截屏保存
-			case VK_LEFT:  // Win+Left - 窗口靠左
-			case VK_RIGHT: // Win+Right - 窗口靠右
-			case VK_UP:    // Win+Up - 最大化
-			case VK_DOWN:  // Win+Down - 最小化/恢复
-			case VK_HOME:  // Win+Home - 最小化非活动窗口
-			case VK_SPACE: // Win+Space - 切换输入法
-			case VK_RETURN: // Win+Enter - 讲述人
-			case VK_OEM_PERIOD: // Win+. - 表情符号面板
-			case VK_OEM_COMMA:  // Win+, - 桌面透视
-			case VK_OEM_PLUS:   // Win++ - 放大
-			case VK_OEM_MINUS:  // Win+- - 缩小
-				return true;
-		}
-
-		// Win + Shift 组合
-		if (modifiers & MOD_SHIFT) {
-			switch (key) {
-				case 'S': // Win+Shift+S - 截图工具
-				case VK_LEFT:  // Win+Shift+Left - 移动到左侧显示器
-				case VK_RIGHT: // Win+Shift+Right - 移动到右侧显示器
-				case VK_UP:    // Win+Shift+Up - 窗口拉伸到顶部
-				case VK_DOWN:  // Win+Shift+Down - 窗口恢复
-					return true;
-			}
-		}
-
-		// Win + Ctrl 组合
-		if (modifiers & MOD_CONTROL) {
-			switch (key) {
-				case 'F': // Win+Ctrl+F - 查找计算机
-				case 'D': // Win+Ctrl+D - 新建虚拟桌面
-				case VK_LEFT:  // Win+Ctrl+Left - 切换到上一个虚拟桌面
-				case VK_RIGHT: // Win+Ctrl+Right - 切换到下一个虚拟桌面
-				case VK_F4:    // Win+Ctrl+F4 - 关闭当前虚拟桌面
-					return true;
-			}
-		}
-
-		// Win + Alt 组合
-		if (modifiers & MOD_ALT) {
-			switch (key) {
-				case VK_RETURN: // Win+Alt+Enter - 媒体播放器全屏
-				case 'D':      // Win+Alt+D - 显示日期时间
-					return true;
-			}
-		}
-	}
-
-	// 2. 其他系统保留组合（非 Win 键）
+	// 只检查无法被应用程序捕获的系统保留热键
 	// Ctrl+Alt+Del - 安全选项（无法被应用程序捕获）
 	if ((modifiers & MOD_CONTROL) && (modifiers & MOD_ALT) && key == VK_DELETE) {
 		return true;
 	}
 
-	// Alt+F4 - 关闭窗口
-	if ((modifiers & MOD_ALT) && key == VK_F4) {
-		return true;
-	}
-
-	// Ctrl+Esc - 开始菜单
-	if ((modifiers & MOD_CONTROL) && key == VK_ESCAPE) {
-		return true;
-	}
-
-	// Alt+Tab - 切换窗口
-	if ((modifiers & MOD_ALT) && key == VK_TAB) {
-		return true;
-	}
-
-	// Alt+Space - 窗口菜单
-	if ((modifiers & MOD_ALT) && key == VK_SPACE) {
-		return true;
-	}
-
-	// F1 - 帮助
-	if (key == VK_F1 && modifiers == 0) {
-		return true;
-	}
-
-	// Ctrl+C, Ctrl+V, Ctrl+X, Ctrl+Z 等常用编辑快捷键
-	// 这些通常可以被覆盖，但避免误操作
-	if (modifiers == MOD_CONTROL) {
-		switch (key) {
-			case 'C': // 复制
-			case 'V': // 粘贴
-			case 'X': // 剪切
-			case 'Z': // 撤销
-			case 'Y': // 重做
-			case 'A': // 全选
-			case 'S': // 保存
-			case 'P': // 打印
-			case 'N': // 新建
-			case 'O': // 打开
-				return true;
-		}
-	}
+	// 应用程序可以捕获并处理这些热键，但用户应该谨慎使用
+	// 这里不再将这些标记为系统保留热键
+	// 让testHotkey函数实际测试热键是否可用
 
 	return false;
+}
+
+bool HotkeyManager::testHotkey(const QKeySequence& keySequence)
+{
+	if (!m_hotkeyWindow) {
+		qWarning() << "Hotkey window not created";
+		return false;
+	}
+
+	UINT modifiers, key;
+	if (!parseKeySequence(keySequence, modifiers, key)) {
+		qWarning() << "Failed to parse key sequence for test:" << keySequence.toString();
+		return false;
+	}
+
+	// 临时热键ID
+	int testId = 99999;
+
+	// 尝试注册热键
+	bool success = RegisterHotKey(m_hotkeyWindow, testId, modifiers | MOD_NOREPEAT, key);
+	
+	// 如果成功，立即注销
+	if (success) {
+		UnregisterHotKey(m_hotkeyWindow, testId);
+	}
+
+	qDebug() << "Hotkey test:" << keySequence.toString() << "->" << (success ? "Available" : "Unavailable");
+	return success;
 }

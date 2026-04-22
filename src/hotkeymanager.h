@@ -30,6 +30,9 @@ public:
 	// 获取热键的虚拟键码和修饰符
 	static bool parseKeySequence(const QKeySequence& keySequence, UINT& modifiers, UINT& key);
 
+	// 测试热键是否可用
+	bool testHotkey(const QKeySequence& keySequence);
+
 	// 保存/加载热键配置
 	void saveHotkeys(QSettings& settings);
 	void loadHotkeys(QSettings& settings);
