@@ -2473,7 +2473,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event)
 		QKeySequence keySequence(keyEvent->key() | keyEvent->modifiers());
 
 		// 检查热键是否已被占用
-		if (!isHotkeyAvailable(keySequence)) {
+		if (!HotkeyManager::instance().isHotkeyAvailable(m_currentHotkeyId, keySequence)) {
 			cancelHotkeySetting();
 			return true;
 		}
@@ -3023,25 +3023,6 @@ void MainWindow::startBindHotkey()
 		});
 }
 
-bool MainWindow::isHotkeyAvailable(const QKeySequence& keySequence)
-{
-	auto currentHotkeys = HotkeyManager::instance().getAllHotkeys();
-
-	// 检查新热键是否与已有的冲突
-	for (auto it = currentHotkeys.begin(); it != currentHotkeys.end(); ++it) {
-		if (it.key() != m_currentHotkeyId && it.value() == keySequence) {
-			return false;
-		}
-	}
-
-	// 检查热键是否可用
-	if (!HotkeyManager::instance().testHotkey(keySequence)) {
-		QMessageBox::warning(this, trc("MainWindow", "Warning"),
-			trc("MainWindow", "This hotkey is not available or already in use by another application! Please choose another combination."));
-		return false;
-	}
-	return true;
-}
 
 void MainWindow::clearSelectedHotkey()
 {

@@ -6,6 +6,13 @@
 #include <QSettings>
 #include <windows.h>
 
+enum class HotkeyAvailability {
+    Available,
+    Occupied, // 被其他程序占用
+    Reserved, // 系统保留
+    Invalid   // 无效的热键组合
+};
+
 class HotkeyManager : public QObject {
 	Q_OBJECT
 
@@ -28,7 +35,10 @@ public:
 	static bool parseKeySequence(const QKeySequence& keySequence, UINT& modifiers, UINT& key);
 
 	// 测试热键是否可用
-	bool testHotkey(const QKeySequence& keySequence);
+	HotkeyAvailability testHotkey(const QKeySequence& keySequence);
+
+	// 检查热键是否可用（包含冲突检查）
+	bool isHotkeyAvailable(const QString& excludeId, const QKeySequence& keySequence);
 
 	// 保存/加载热键配置
 	void saveHotkeys(QSettings& settings);

@@ -132,7 +132,6 @@ private:
 	void loadColumnVisibilitySettings();
 
 	void initializeHotkeyTable();
-	bool isHotkeyAvailable(const QKeySequence& keySequence);
 	
 	// 应用托盘窗口持久化
 	void saveAppTrayWindows();

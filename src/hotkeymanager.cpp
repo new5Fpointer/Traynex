@@ -200,36 +200,51 @@ bool HotkeyManager::parseKeySequence(const QKeySequence& keySequence, UINT& modi
 	return true;
 }
 
-bool HotkeyManager::registerHotkey(const QString& id, const QKeySequence& keySequence)
-{
-	if (!m_hotkeyWindow) {
-		qWarning() << "Hotkey window not created";
-		return false;
-	}
+bool HotkeyManager::registerHotkey(const QString &id, const QKeySequence &keySequence) {
+    if (!m_hotkeyWindow) {
+        qWarning() << "Hotkey window not created";
+        return false;
+    }
 
-	// 如果热键已注册，先注销
-	if (m_hotkeyIds.contains(id)) {
-		unregisterHotkey(id);
-	}
+    // 如果热键已注册，先注销
+    if (m_hotkeyIds.contains(id)) {
+        unregisterHotkey(id);
+    }
 
-	UINT modifiers, key;
-	if (!parseKeySequence(keySequence, modifiers, key)) {
-		qWarning() << "Failed to parse key sequence:" << keySequence.toString();
-		return false;
-	}
+    // 检测热键可用性
+    auto availability = testHotkey(keySequence);
+    if (availability != HotkeyAvailability::Available) {
+        const char *reason = "";
+        switch (availability) {
+        case HotkeyAvailability::Occupied:
+            reason = "Occupied";
+            break;
+        case HotkeyAvailability::Reserved:
+            reason = "Reserved";
+            break;
+        default:
+            reason = "Invalid";
+            break;
+        }
+        qWarning() << "Cannot register hotkey" << id << ":" << reason;
+        return false;
+    }
 
-	int hotkeyId = m_nextHotkeyId++;
-	if (RegisterHotKey(m_hotkeyWindow, hotkeyId, modifiers | MOD_NOREPEAT, key)) {
-		m_hotkeyIds[id] = hotkeyId;
-		m_idToHotkey[hotkeyId] = id;
-		m_hotkeys[id] = keySequence;
-		qDebug() << "Hotkey registered:" << id << "=" << keySequence.toString();
-		return true;
-	}
-	else {
-		qWarning() << "Failed to register hotkey:" << id << "=" << keySequence.toString();
-		return false;
-	}
+    UINT modifiers, key;
+    if (!parseKeySequence(keySequence, modifiers, key)) {
+        return false;
+    }
+
+    int hotkeyId = m_nextHotkeyId++;
+    if (RegisterHotKey(m_hotkeyWindow, hotkeyId, modifiers | MOD_NOREPEAT, key)) {
+        m_hotkeyIds[id] = hotkeyId;
+        m_idToHotkey[hotkeyId] = id;
+        m_hotkeys[id] = keySequence;
+        qDebug() << "Hotkey registered:" << id << "=" << keySequence.toString();
+        return true;
+    }
+
+    return false;
 }
 
 bool HotkeyManager::unregisterHotkey(const QString& id)
@@ -284,6 +299,20 @@ void HotkeyManager::loadHotkeys(QSettings& settings)
 		}
 	}
 	settings.endGroup();
+}
+
+bool HotkeyManager::isHotkeyAvailable(const QString& excludeId, const QKeySequence& keySequence)
+{
+	// 检查新热键是否与已有的冲突（排除excludeId）
+	for (auto it = m_hotkeys.begin(); it != m_hotkeys.end(); ++it) {
+		if (it.key() != excludeId && it.value() == keySequence) {
+			return false;
+		}
+	}
+
+	// 使用testHotkey检查热键是否可用
+	HotkeyAvailability availability = testHotkey(keySequence);
+	return availability == HotkeyAvailability::Available;
 }
 
 QHash<QString, QKeySequence> HotkeyManager::getAllHotkeys() const
