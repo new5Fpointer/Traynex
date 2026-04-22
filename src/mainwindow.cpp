@@ -1494,8 +1494,8 @@ void MainWindow::retranslateUI()
 	// 重置按钮文本
 	resetDefaultsButton->setText(trc("MainWindow", "Reset to Defaults"));
 
-	// 刷新热键列表的描述
-	initializeHotkeyTable();
+	// 刷新热键列表的描述和状态文本
+	updateHotkeyTableStatusText();
 
 	// 右键菜单
 	if (contextMenu) {
@@ -3035,6 +3035,54 @@ void MainWindow::initializeHotkeyTable()
 	// 连接表格选择变化信号
 	connect(hotkeyTable, &QTableWidget::itemSelectionChanged,
 		this, &MainWindow::onHotkeySelectionChanged);
+}
+
+void MainWindow::updateHotkeyTableStatusText()
+{
+	// 热键动作描述映射
+	QHash<QString, QString> actionDescriptions = {
+		{"minimize_active", trc("MainWindow", "Minimize Active Window to Tray")},
+		{"show_window", trc("MainWindow", "Show Main Window")},
+		{"restore_last", trc("MainWindow", "Restore Last Hidden Window")},
+		{"restore_all", trc("MainWindow", "Restore All Hidden Windows")}
+	};
+	
+	// 更新热键表状态列和描述列的文本（不重新创建整个表格）
+	for (int row = 0; row < hotkeyTable->rowCount(); ++row) {
+		QTableWidgetItem* idItem = hotkeyTable->item(row, 0);
+		QTableWidgetItem* descItem = hotkeyTable->item(row, 1);
+		QTableWidgetItem* hotkeyItem = hotkeyTable->item(row, 2);
+		QTableWidgetItem* statusItem = hotkeyTable->item(row, 3);
+		
+		if (!idItem || !descItem || !statusItem) continue;
+		
+		QString hotkeyId = idItem->text();
+		QString hotkeyText = hotkeyItem ? hotkeyItem->text() : "";
+		
+		// 更新描述列
+		if (actionDescriptions.contains(hotkeyId)) {
+			descItem->setText(actionDescriptions[hotkeyId]);
+			descItem->setToolTip(actionDescriptions[hotkeyId]);
+		}
+		
+		// 更新状态列
+		if (!hotkeyText.isEmpty()) {
+			bool isActive = HotkeyManager::instance().isHotkeyActive(hotkeyId);
+			if (isActive) {
+				statusItem->setText(trc("MainWindow", "Active"));
+				statusItem->setToolTip(trc("MainWindow", "Hotkey is registered and active"));
+				statusItem->setForeground(QBrush(Qt::darkGreen));
+			} else {
+				statusItem->setText(trc("MainWindow", "Conflict"));
+				statusItem->setToolTip(trc("MainWindow", "Hotkey is configured but not registered (conflict with other application)"));
+				statusItem->setForeground(QBrush(Qt::red));
+			}
+		} else {
+			statusItem->setText(trc("MainWindow", "Not Set"));
+			statusItem->setToolTip(trc("MainWindow", "No hotkey configured"));
+			statusItem->setForeground(QBrush(Qt::black));
+		}
+	}
 }
 
 void MainWindow::onHotkeySelectionChanged()

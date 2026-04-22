@@ -132,6 +132,7 @@ private:
 	void loadColumnVisibilitySettings();
 
 	void initializeHotkeyTable();
+	void updateHotkeyTableStatusText();
 	
 	// 应用托盘窗口持久化
 	void saveAppTrayWindows();
