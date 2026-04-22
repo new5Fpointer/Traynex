@@ -160,3 +160,11 @@ Reset Complete=重置完成
 All settings have been restored to default.=所有设置已恢复为默认值。
 Reset Column Widths=重置列宽
 Program Path=程序路径
+
+; === Hotkey Status ===
+Hotkey is registered and active=热键已注册并激活
+Hotkey is configured but not registered (conflict with other application)=热键已配置但未注册（与其他应用程序冲突）
+No hotkey configured=未配置热键
+Active=已激活
+Conflict=冲突
+Not Set=未设置

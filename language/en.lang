@@ -184,3 +184,11 @@ All settings have been restored to default.=All settings have been restored to d
 ; === Table Header Context Menu ===
 Reset Column Widths=Reset Column Widths
 Program Path=Program Path
+
+; === Hotkey Status ===
+Hotkey is registered and active=Hotkey is registered and active
+Hotkey is configured but not registered (conflict with other application)=Hotkey is configured but not registered (conflict with other application)
+No hotkey configured=No hotkey configured
+Active=Active
+Conflict=Conflict
+Not Set=Not Set
