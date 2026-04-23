@@ -50,6 +50,9 @@ public:
 	// 获取热键注册状态
 	bool isHotkeyActive(const QString& id) const;
 
+	// 将热键序列转换为用户友好的字符串（将Meta替换为Win）
+	static QString toUserFriendlyString(const QKeySequence& keySequence);
+
 signals:
 	void hotkeyTriggered(const QString& id);
 

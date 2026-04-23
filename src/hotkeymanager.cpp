@@ -355,3 +355,24 @@ HotkeyAvailability HotkeyManager::testHotkey(const QKeySequence &keySequence) {
         return HotkeyAvailability::Invalid;
     }
 }
+
+QString HotkeyManager::toUserFriendlyString(const QKeySequence& keySequence)
+{
+    if (keySequence.isEmpty()) {
+        return QString();
+    }
+    
+    // 获取Qt的默认字符串表示
+    QString str = keySequence.toString();
+    
+    // 在Windows上，将"Meta"替换为"Win"
+    // 注意：Qt可能使用不同的本地化表示，这里处理常见情况
+    str = str.replace("Meta", "Win", Qt::CaseInsensitive);
+    str = str.replace("Meta+", "Win+", Qt::CaseInsensitive);
+    
+    // 处理其他可能的表示形式
+    str = str.replace("⊞", "Win");  // Unicode Windows符号
+    str = str.replace("❖", "Win");  // 另一个可能的符号
+    
+    return str;
+}

@@ -2483,7 +2483,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event)
 
 		// 尝试注册热键
 		if (HotkeyManager::instance().registerHotkey(m_currentHotkeyId, keySequence)) {
-			finishHotkeySetting(keySequence.toString());
+			finishHotkeySetting(HotkeyManager::toUserFriendlyString(keySequence));
 		}
 		else {
 			QMessageBox::warning(this, trc("MainWindow", "Error"),
@@ -2602,7 +2602,7 @@ void MainWindow::cancelHotkeySetting()
 			QString hotkeyId = idItem->data(Qt::UserRole).toString();
 			auto hotkeys = HotkeyManager::instance().getAllHotkeys();
 			if (hotkeys.contains(hotkeyId)) {
-				originalHotkey = hotkeys[hotkeyId].toString();
+				originalHotkey = HotkeyManager::toUserFriendlyString(hotkeys[hotkeyId]);
 			}
 		}
 
@@ -3008,7 +3008,7 @@ void MainWindow::initializeHotkeyTable()
 		// 热键
 		QString hotkeyText = "";
 		if (currentHotkeys.contains(action.first)) {
-			hotkeyText = currentHotkeys[action.first].toString();
+			hotkeyText = HotkeyManager::toUserFriendlyString(currentHotkeys[action.first]);
 		}
 		QTableWidgetItem* hotkeyItem = new QTableWidgetItem(hotkeyText);
 		hotkeyItem->setToolTip(hotkeyText);  // 添加悬浮提示
