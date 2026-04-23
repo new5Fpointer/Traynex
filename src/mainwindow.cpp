@@ -1440,7 +1440,7 @@ void MainWindow::retranslateUI()
 		restoreLastAction->setText(trc("MainWindow", "Restore Last Window"));
 		restoreAllAction->setText(trc("MainWindow", "Restore All Windows"));
 		quitAction->setText(trc("MainWindow", "Exit"));
-		trayIcon->setToolTip(trc("MainWindow", "Traynex - Right click for menu"));
+		trayIcon->setToolTip(trc("MainWindow", "Traynex"));
 	}
 
 	// 更新托盘菜单布局
@@ -2533,11 +2533,19 @@ void MainWindow::finishHotkeySetting(const QString& keySequence)
 			if (isActive) {
 				statusItem->setText(trc("MainWindow", "Active"));
 				statusItem->setToolTip(trc("MainWindow", "Hotkey is registered and active"));
-				statusItem->setForeground(QBrush(Qt::darkGreen));
+				// 设置标志确保项始终启用，颜色在失去焦点时仍然保持
+				statusItem->setFlags(statusItem->flags() | Qt::ItemIsEnabled);
+				QBrush greenBrush(Qt::darkGreen);
+				greenBrush.setStyle(Qt::SolidPattern);
+				statusItem->setForeground(greenBrush);
 			} else {
 				statusItem->setText(trc("MainWindow", "Conflict"));
 				statusItem->setToolTip(trc("MainWindow", "Hotkey is configured but not registered (conflict with other application)"));
-				statusItem->setForeground(QBrush(Qt::red));
+				// 设置标志确保项始终启用，颜色在失去焦点时仍然保持
+				statusItem->setFlags(statusItem->flags() | Qt::ItemIsEnabled);
+				QBrush redBrush(Qt::red);
+				redBrush.setStyle(Qt::SolidPattern);
+				statusItem->setForeground(redBrush);
 			}
 		} else if (idItem && keySequence.isEmpty()) {
 			// 清空白热键
@@ -2548,7 +2556,11 @@ void MainWindow::finishHotkeySetting(const QString& keySequence)
 			}
 			statusItem->setText(trc("MainWindow", "Not Set"));
 			statusItem->setToolTip(trc("MainWindow", "No hotkey configured"));
-			statusItem->setForeground(QBrush(Qt::black));
+			// 设置标志确保项始终启用，颜色在失去焦点时仍然保持
+			statusItem->setFlags(statusItem->flags() | Qt::ItemIsEnabled);
+			QBrush blackBrush(Qt::black);
+			blackBrush.setStyle(Qt::SolidPattern);
+			statusItem->setForeground(blackBrush);
 		}
 	}
 
@@ -3021,10 +3033,16 @@ void MainWindow::initializeHotkeyTable()
 		
 		QTableWidgetItem* statusItem = new QTableWidgetItem(statusText);
 		statusItem->setToolTip(statusTooltip);
+		// 设置标志确保项始终启用，颜色在失去焦点时仍然保持
+		statusItem->setFlags(statusItem->flags() | Qt::ItemIsEnabled);
 		if (statusText == trc("MainWindow", "Conflict")) {
-			statusItem->setForeground(QBrush(Qt::red));
+			QBrush redBrush(Qt::red);
+			redBrush.setStyle(Qt::SolidPattern);
+			statusItem->setForeground(redBrush);
 		} else if (statusText == trc("MainWindow", "Active")) {
-			statusItem->setForeground(QBrush(Qt::darkGreen));
+			QBrush greenBrush(Qt::darkGreen);
+			greenBrush.setStyle(Qt::SolidPattern);
+			statusItem->setForeground(greenBrush);
 		}
 		hotkeyTable->setItem(row, 3, statusItem);
 
@@ -3071,16 +3089,28 @@ void MainWindow::updateHotkeyTableStatusText()
 			if (isActive) {
 				statusItem->setText(trc("MainWindow", "Active"));
 				statusItem->setToolTip(trc("MainWindow", "Hotkey is registered and active"));
-				statusItem->setForeground(QBrush(Qt::darkGreen));
+				// 设置标志确保项始终启用，颜色在失去焦点时仍然保持
+				statusItem->setFlags(statusItem->flags() | Qt::ItemIsEnabled);
+				QBrush greenBrush(Qt::darkGreen);
+				greenBrush.setStyle(Qt::SolidPattern);
+				statusItem->setForeground(greenBrush);
 			} else {
 				statusItem->setText(trc("MainWindow", "Conflict"));
 				statusItem->setToolTip(trc("MainWindow", "Hotkey is configured but not registered (conflict with other application)"));
-				statusItem->setForeground(QBrush(Qt::red));
+				// 设置标志确保项始终启用，颜色在失去焦点时仍然保持
+				statusItem->setFlags(statusItem->flags() | Qt::ItemIsEnabled);
+				QBrush redBrush(Qt::red);
+				redBrush.setStyle(Qt::SolidPattern);
+				statusItem->setForeground(redBrush);
 			}
 		} else {
 			statusItem->setText(trc("MainWindow", "Not Set"));
 			statusItem->setToolTip(trc("MainWindow", "No hotkey configured"));
-			statusItem->setForeground(QBrush(Qt::black));
+			// 设置标志确保项始终启用，颜色在失去焦点时仍然保持
+			statusItem->setFlags(statusItem->flags() | Qt::ItemIsEnabled);
+			QBrush blackBrush(Qt::black);
+			blackBrush.setStyle(Qt::SolidPattern);
+			statusItem->setForeground(blackBrush);
 		}
 	}
 }
@@ -3166,7 +3196,11 @@ void MainWindow::clearSelectedHotkey()
 	}
 	statusItem->setText(trc("MainWindow", "Not Set"));
 	statusItem->setToolTip(trc("MainWindow", "No hotkey configured"));
-	statusItem->setForeground(QBrush(Qt::black));
+	// 设置标志确保项始终启用，颜色在失去焦点时仍然保持
+	statusItem->setFlags(statusItem->flags() | Qt::ItemIsEnabled);
+	QBrush blackBrush(Qt::black);
+	blackBrush.setStyle(Qt::SolidPattern);
+	statusItem->setForeground(blackBrush);
 
 	// 保存设置
 	saveHotkeySettings();
